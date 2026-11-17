@@ -40,32 +40,48 @@ header,li { justify-content: space-between }
 ul { list-style: none; padding: 0; margin: 16px 0 }
 li { border-top: 1px solid #e0e2da; padding: 10px 0 }
 li > span { overflow-wrap: anywhere }
-.menu { margin-left: clamp(0px,2vw,28px); width: min(100%,415px); padding: 28px }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap }
+.menu { margin-left: clamp(0px,2vw,28px); width: min(100%,410px); padding: 29px }
+.menu nav { gap: 12px }
+.menu button { transition: background-color 145ms,border-color 145ms,translate 145ms }
+.menu button:not(:disabled):active { translate: 0 1px }
+.reduced-motion .menu button { transition: none }
 .menu-mark,.result-mark {
   width: 39px; height: 39px; display: grid; place-items: center; border-radius: 6px;
   background: #e6ebde; border: 1px solid #d5dfd2; font-size: 22px; color: var(--green); margin-bottom: 18px;
 }
-.menu h1 { font-size: clamp(50px,5.4vw,71px); font-weight: 880; letter-spacing: -.083em }
+.menu h1 { font-size: clamp(49px,5.3vw,69px); font-weight: 855; letter-spacing: -.071em }
 .menu h1 span { color: #4c735a }
 .menu p { color: var(--muted); margin: 13px 0 23px }
-.menu-play { min-height: 49px; justify-content: flex-start; padding-left: 16px; font-size: 16px }
+.menu-play { min-height: 50px; justify-content: flex-start; padding-left: 16px; font-size: 16px; gap: 10px }
+.menu-rooms button { min-height: 46px }
 .menu-play svg { fill: currentColor; width: 18px; height: 18px }
 .menu-rooms,.menu-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
 .menu-links { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px }
 .menu-links button { border: 0; background: transparent; justify-content: flex-start; color: #435249; font-size: 14px }
-.lobby { width: min(100%,485px); align-self: center; margin-top: 28px }
+.lobby { width: min(100%,460px); align-self: center }
+.has-scene .lobby { position: fixed; bottom: clamp(16px,6vh,54px); left: clamp(16px,3vw,50px); width: min(460px,42vw) }
 .lobby header { flex-wrap: wrap }
 .capacity { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: .84rem }
-.lobby ul { border-bottom: 1px solid var(--line); max-height: min(38vh, 350px); overflow: auto }
-.lobby small { white-space: nowrap; color: var(--muted); min-width: max-content }
-.lobby small.ready { color: #2f6b45; font-weight: 680 }
-.lobby-player { display: inline-flex; gap: 8px; align-items: center }
+.lobby ul { border-bottom: 1px solid var(--line); max-height: min(30vh,246px); overflow: auto; margin: 13px 0 }
+.lobby li { min-height: 37px; padding-block: 7px }
+.lobby small { white-space: nowrap; color: var(--muted); border-radius: 4px; padding: 3px 6px; background: #edeee7 }
+.lobby small.ready { color: #2e6549; background: #e5ede2; font-weight: 680 }
+.lobby small.offline { color: #89572f; background: #f2e6d6 }
+.lobby small.host-label { color: #594c34; background: #eee5ce; font-weight: 700 }
+.seat-labels { display: flex; gap: 4px; flex-shrink: 0 }
+.lobby-player { display: inline-flex; min-width: 0; gap: 8px; align-items: center }
+.lobby-player .player-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .player-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: #ac8242 }
 .player-dot.online { background: #618f69 }
-.invitation { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; align-items: end }
-.invitation input { font-size: .85rem }
-.lobby .actions { gap: 6px }
-.lobby .actions button { padding-inline: 9px; font-size: .87rem; min-height: 39px }
+.invitation { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; align-items: center }
+.invitation input { font-size: .81rem; grid-column: 1/-1 }
+.invitation button { min-height: 30px; padding: 4px 9px; font-size: .81rem }
+.invitation button svg { width: 15px; height: 15px }
+.lobby .actions { gap: 6px; margin-top: 7px }
+.lobby .actions button { flex: 1; padding-inline: 9px; font-size: .87rem; min-height: 39px }
+.lobby .start-game { width: 100%; margin-top: 13px }
+.lobby .start-game:disabled { background: #e9ece3; border-color: #d8dbd2; color: #606f64; opacity: 1 }
 .lobby-status { color: var(--muted); font-size: .875rem; margin: 10px 0 0 }
 .shade { position: fixed; inset: 0; display: grid; place-items: center; padding: 20px; background: #101a16b8; z-index: 3; overflow: auto }
 .dialog { max-height: calc(100dvh - 40px); overflow: auto }
@@ -155,6 +171,7 @@ li > span { overflow-wrap: anywhere }
   .has-scene .phase-panel { width: min(300px,46vw) }
   .has-scene .score-panel { width: 26vw }
   .menu { margin-left: 0 }
+  .has-scene .lobby { width: min(460px,calc(100vw - 32px)) }
 }
 #close-inspection { position: fixed; z-index: 2; left: 50%; top: 82%; transform: translateX(-50%); }
 #close-inspection[hidden] { display: none }

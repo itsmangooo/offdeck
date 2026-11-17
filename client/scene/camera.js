@@ -47,7 +47,7 @@ export class SeatCamera {
         aim.y += vertical * .27 * sensitivity
       }
     } else {
-      const shift = still ? 0 : Math.sin(seconds * .15) * .12
+      const shift = still ? 0 : Math.sin(seconds*.17)*.31
       position.set(MENU.x + shift,MENU.y,MENU.z - shift * 1.2)
       aim.set(MENU_AIM.x,MENU_AIM.y,MENU_AIM.z)
     }

@@ -1,0 +1,45 @@
+import { test,expect } from '@playwright/test'
+import { openPlayer } from './players.js'
+
+test('keyboard navigation, copied invitations and active leave confirmation work',async ({browser},info) => {
+  const host = await openPlayer(browser,'Maya')
+  const a = host.page
+  const guests = []
+  try {
+    await host.context.grantPermissions(['clipboard-read','clipboard-write'])
+    await a.getByRole('button',{name:'Play',exact:true}).focus()
+    await a.keyboard.press('Enter')
+    await a.getByRole('dialog',{name:'Play'}).getByRole('button',{name:'Create Room'}).focus()
+    await a.keyboard.press('Enter')
+    await expect(a.getByLabel('Seats')).toBeFocused()
+    await a.keyboard.press('Escape')
+    await expect(a.getByRole('button',{name:'Play',exact:true})).toBeFocused()
+    await a.getByRole('button',{name:'Create Room'}).click()
+    await a.getByRole('dialog').getByRole('button',{name:'Create Room'}).click()
+    await expect(a.getByRole('button',{name:'Start Game'})).toBeDisabled()
+    await a.getByRole('button',{name:'Copy Link'}).click()
+    await expect(a.getByRole('button',{name:'Copied'})).toBeVisible()
+    const link = await a.getByLabel('Invitation link').inputValue()
+    expect(await a.evaluate(() => navigator.clipboard.readText())).toBe(link)
+    const guest = await openPlayer(browser,'Jules')
+    guests.push(guest)
+    await guest.page.getByRole('button',{name:'Join Room'}).click()
+    await guest.page.getByLabel('Invitation link').fill(link)
+    await guest.page.getByRole('dialog').getByRole('button',{name:'Join Room'}).click()
+    await expect(guest.page.getByRole('heading',{name:'Room lobby'})).toBeVisible()
+    guests.push(await openPlayer(browser,'Sam',link))
+    await guest.page.getByRole('button',{name:'Ready',exact:true}).focus()
+    await guest.page.keyboard.press('Enter')
+    await expect(guest.page.getByRole('button',{name:'Unready'})).toBeFocused()
+    await expect(a.getByRole('listitem').filter({hasText:'Jules'})).toContainText('Ready')
+    await a.screenshot({path:info.outputPath('lobby.png')})
+    await a.getByRole('button',{name:'Start Game'}).click()
+    await a.getByRole('button',{name:'Leave Room'}).click()
+    await expect(a.getByRole('dialog',{name:'Leave match?'})).toBeVisible()
+    await a.getByRole('button',{name:'Stay at Table'}).click()
+    await expect(a.getByRole('button',{name:'Leave Room'})).toBeFocused()
+    await expect(a.getByRole('heading',{name:'Choose a response'})).toBeVisible()
+  } finally {
+    await Promise.all([host,...guests].map(client=>client.context.close()))
+  }
+})

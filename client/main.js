@@ -32,6 +32,9 @@ let pending = false
 let resumeQueued = false
 let seatSnapshot = false
 let messageTimer
+let copiedRoom
+let copyTimer
+let viewKind
 let invite = readInvite()
 let publicOrigin = location.origin
 let scene
@@ -184,6 +187,7 @@ function leave() {
     request('room:leave', {}, () => {
       remember(room.id, null)
       room = null
+      panel = null
       navigate()
     })
   } else {
@@ -271,19 +275,24 @@ function lobby() {
   return `<section class="lobby panel">
     <header><h1>Room lobby</h1><span class="capacity">${icon('users')} ${connected}/${room.config.capacity} connected</span></header>
     <ul aria-label="Players">${room.players.map(player => `<li>
-      <span class="lobby-player"><i class="player-dot ${player.connected ? 'online' : ''}" aria-hidden="true"></i>${escapeHtml(player.name)}${player.id === room.selfId ? ' (you)' : ''}</span>
-      <small class="${player.ready ? 'ready' : ''}">${player.id === room.hostId ? 'Host · ' : ''}${player.connected ? (player.ready ? 'Ready' : 'Seated') : 'Reconnecting'}</small>
+      <span class="lobby-player"><i class="player-dot ${player.connected ? 'online' : ''}" aria-hidden="true"></i><span class="player-name">${escapeHtml(player.name)}${player.id === room.selfId ? ' (you)' : ''}</span></span>
+      <span class="seat-labels">
+        ${player.id === room.hostId ? '<small class="host-label">Host</small>' : ''}
+        <small class="${player.connected ? (player.ready ? 'ready' : '') : 'offline'}">${player.connected ? (player.ready ? 'Ready' : 'Seated') : 'Reconnecting'}</small>
+      </span>
     </li>`).join('')}</ul>
     <div class="invitation">
-      <label>Invitation link<input id="invitation" readonly value="${escapeHtml(link)}"></label>
-      ${button('Copy Link', 'copy', { glyph: 'copy' })}
+      <label for="invitation">Invitation link</label>
+      ${button(copiedRoom === room.id ? 'Copied' : 'Copy Link','copy',{glyph:copiedRoom === room.id ? 'check' : 'copy'})}
+      <input id="invitation" readonly value="${escapeHtml(link)}" title="${escapeHtml(link)}">
+      <span class="sr-only" role="status">${copiedRoom === room.id ? 'Invitation copied.' : ''}</span>
     </div>
     ${room.hostId === room.selfId && connected < 3 ? '<p class="lobby-status">Three connected players are needed to start.</p>' : ''}
+    ${room.hostId === room.selfId ? button('Start Game','start',{primary:true,glyph:'play',className:'start-game',disabled:pending || !socket.connected || connected < 3}) : ''}
     <div class="actions">
-      ${room.hostId === room.selfId ? button('Start Game', 'start', { primary: true, glyph: 'play', disabled: pending || !socket.connected || connected < 3 }) : ''}
-      ${button(self?.ready ? 'Unready' : 'Ready', 'ready', { glyph: 'check', primary: room.hostId !== room.selfId, disabled: pending || !socket.connected })}
-      ${button('Settings', 'settings', { glyph: 'gear' })}
-      ${button('Leave Room', 'leave', { glyph: 'signOut', disabled: pending })}
+      ${button(self?.ready ? 'Unready' : 'Ready','ready',{glyph:'check',primary:room.hostId !== room.selfId,disabled:pending || !socket.connected})}
+      ${button('Settings','settings',{glyph:'gear'})}
+      ${button('Leave Room','leave',{glyph:'signOut',disabled:pending})}
     </div>
   </section>`
 }
@@ -298,9 +307,10 @@ function overlay() {
   const submit = (label, disabled = pending) => `<button class="primary" ${disabled ? 'disabled' : ''}>${label}</button>`
   if (!name) return dialog('Welcome to OFFDECK', `<p>Choose your nickname.</p><form data-form="nickname">${nameField()}${submit('Continue', false)}</form>`, false)
   if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending))
+  if (panel === 'leave') return dialog('Leave match?', `<p>Leaving frees your seat and may end the match for the remaining players.</p><div class="actions">${button('Stay at Table','close',{primary:true})}${button('Leave Room','leave-confirm',{glyph:'signOut',disabled:pending})}</div>`)
   if (panel === 'help') return dialog('How to Play', `<ol class="instructions">
     <li>Open a room and invite 3–8 players. The host starts the match.</li>
-    <li>Read the scenario. Hover over a response in your seven-card hand to inspect it, then click to lock it in.</li>
+    <li>Click the scenario card for a closer look. Hover over a response in your hand to read it, then click to lock it in.</li>
     <li>After the cards flip, click another player’s anonymous response to vote. Each vote received earns one point.</li>
     <li>Results reveal the authors. The next scenario starts automatically. The highest score wins when the deck is empty, and ties stand.</li>
   </ol><p class="help-note">Open Card list for keyboard controls. Move the mouse to look around the table.</p>`)
@@ -309,11 +319,11 @@ function overlay() {
     <label>Seats<input name="capacity" type="number" min="3" max="8" value="${DEFAULT_CONFIG.capacity}" required></label>
     <label>Response time in seconds<input name="selectSeconds" type="number" min="15" max="120" value="${DEFAULT_CONFIG.selectSeconds}" required></label>
     <label>Voting time in seconds<input name="voteSeconds" type="number" min="10" max="90" value="${DEFAULT_CONFIG.voteSeconds}" required></label>
-    ${submit('Create Room', pending || !socket.connected)}
+    ${submit(pending ? 'Creating…' : 'Create Room', pending || !socket.connected)}
   </form>`)
   if (panel === 'join' || (!room && invite)) return dialog('Join Room', `<form data-form="join">
-    <label>Invitation link<input name="invitation" placeholder="Paste your invitation link" value="${ROOM_ID.test(invite ?? '') ? escapeHtml(location.href) : ''}" required></label>
-    ${submit('Join Room', pending || !socket.connected)}
+    <label>Invitation link<input name="invitation" placeholder="Paste your invitation link" spellcheck="false" value="${ROOM_ID.test(invite ?? '') ? escapeHtml(location.href) : ''}" required></label>
+    ${submit(pending ? 'Joining…' : 'Join Room', pending || !socket.connected)}
   </form>`)
   return ''
 }
@@ -323,15 +333,30 @@ function render() {
   const focused = document.activeElement
   const field = focused?.name
   // Leave an open form in place across unrelated room updates.
-  const base = room?.match ? gameMarkup(room, pending || !socket.connected) : room ? lobby() : menu()
+  const kind = room?.match ? room.match.phase === 'finished' ? 'final' : 'match' : room ? 'lobby' : 'menu'
+  const base = room?.match ? gameMarkup(room,pending || !socket.connected) : room ? lobby() : menu()
   const loading = document.body.classList.contains('loading-scene') ? '<div class="render-loading" role="status">Opening the card room…</div>' : ''
-  const html = `${base}${loading}${!socket.connected ? '<div class="connection" role="status">Connecting to OFFDECK…</div>' : ''}`
+  const html = `${base}${loading}${!socket.connected ? `<div class="connection" role="status">${room ? 'Reconnecting to the room…' : 'Connecting to OFFDECK…'}</div>` : ''}`
   if (viewMarkup !== html) {
     const listExpanded = view.querySelector('.table-controls')?.open
+    const inView = view.contains(focused)
     view.innerHTML = html
     viewMarkup = html
     const list = view.querySelector('.table-controls')
     if (listExpanded && list) list.open = true
+    if (inView && !view.inert) {
+      const next = focused.tagName === 'SUMMARY' ? list?.querySelector('summary')
+        : [...view.querySelectorAll('[data-action],input')].find(control =>
+          (focused.id && control.id === focused.id) ||
+          (focused.dataset.action && control.dataset.action === focused.dataset.action &&
+            control.dataset.card === focused.dataset.card))
+      next?.focus({preventScroll:true})
+    }
+    if (viewKind && kind !== viewKind && !settings.reduced && (kind === 'lobby' || kind === 'menu')) {
+      view.firstElementChild?.animate([{opacity:.72,translate:'0 7px'},{opacity:1,translate:'0 0'}],
+        {duration:210,easing:'ease-out'})
+    }
+    viewKind = kind
   }
   const dialogHtml = overlay()
   if (modalMarkup === dialogHtml) {
@@ -342,10 +367,12 @@ function render() {
   const prior = openForm ? [...openForm.elements].filter(control => control.name)
     .map(control => ({ key: control.name, value: control.value, checked: control.checked })) : []
   const formType = openForm?.dataset.form
-  const opening = !modalMarkup && dialogHtml
+  const oldTitle = modal.querySelector('[role="dialog"]')?.getAttribute('aria-label')
   const closing = modalMarkup && !dialogHtml
   modal.innerHTML = dialogHtml
   modalMarkup = dialogHtml
+  const newTitle = modal.querySelector('[role="dialog"]')?.getAttribute('aria-label')
+  const opening = newTitle && oldTitle !== newTitle
   view.inert = Boolean(dialogHtml)
   const newForm = modal.querySelector('.dialog form')
   if (newForm?.dataset.form === formType) {
@@ -360,11 +387,11 @@ function render() {
       }
     }
   }
-  if (field && focused !== document.body) {
+  if (opening) {
+    (modal.querySelector('input, select') || modal.querySelector('button'))?.focus()
+  } else if (field && focused !== document.body) {
     const replacement = [...modal.querySelectorAll('input,select')].find(input => input.name === field)
     replacement?.focus()
-  } else if (opening) {
-    (modal.querySelector('input, select') || modal.querySelector('button'))?.focus()
   }
   if (closing && opener) {
     view.querySelector('[data-action="' + opener + '"]')?.focus()
@@ -408,19 +435,35 @@ app.addEventListener('click', async event => {
     panel = null
   }
   if (action === 'inspect') scene?.inspectScenario()
-  if (action === 'leave') leave()
+  if (action === 'leave') {
+    if (room?.match && room.match.phase !== 'finished' && !room.match.spectator) {
+      opener = action
+      panel = 'leave'
+    } else leave()
+  }
+  if (action === 'leave-confirm') leave()
   if (action === 'start') request('match:start')
   if (action === 'lobby') request('match:lobby')
   if (action === 'submit' || action === 'vote') playCard(action, control.dataset.card)
   if (action === 'ready') {
     const self = room.players.find(player => player.id === room.selfId)
-    request('player:ready', { ready: !self.ready })
+    await request('player:ready',{ready:!self.ready})
+    if (!event.detail) view.querySelector('[data-action="ready"]')?.focus({preventScroll:true})
   }
   if (action === 'copy') {
     const field = document.querySelector('#invitation')
+    if (!field || !room) return
+    const id = room.id
     try {
       await navigator.clipboard.writeText(field.value)
-      feedback('Invitation copied.')
+      if (room?.id === id) {
+        copiedRoom = id
+        clearTimeout(copyTimer)
+        copyTimer = setTimeout(() => {
+          copiedRoom = null
+          render()
+        },2100)
+      }
     } catch {
       field.focus()
       field.select()
