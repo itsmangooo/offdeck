@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { starterDecks } from '../server/decks.js'
 import { reviewHands } from '../scripts/review-cards.js'
-import { approvedDecks, cardWords, parseLibrary, readCardLibrary, validateLibrary } from '../server/card-library.js'
+import { cardWords } from '../shared/card-similarity.js'
+import { approvedDecks, parseLibrary, readCardLibrary, validateLibrary } from '../server/card-library.js'
 
 const library = readCardLibrary()
 

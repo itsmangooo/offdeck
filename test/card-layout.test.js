@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { SEATS } from '../client/scene/environment.js'
-import { handPose,responsePose,scenarioPose,wrapCardText,fitCardText } from '../client/scene/card-layout.js'
+import { handPose,responsePose,scenarioPose } from '../client/scene/card-layout.js'
+import { wrapCardText,fitCardText } from '../shared/card-text.js'
 import { projector } from './projection.js'
 import { HAND_SIZE } from '../shared/protocol.js'
 

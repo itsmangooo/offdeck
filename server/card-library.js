@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { cardWords } from '../shared/card-similarity.js'
 import { DEFAULT_CONFIG, DEFAULT_MATCH_SCENARIOS, HAND_SIZE } from '../shared/protocol.js'
 
 export const CARD_DIRECTORY = fileURLToPath(new URL('../decks/', import.meta.url))
@@ -14,10 +15,6 @@ const CARD_TYPES = Object.keys(CARD_FILES)
 const CARD_FIELDS = new Set(['id', 'type', 'category', 'text', 'status', 'tags', 'compatibility'])
 
 export class CardLibraryError extends Error {}
-
-export function cardWords(text) {
-  return text.normalize('NFKC').toLowerCase().replace(/['’]/gu, '').match(/[\p{L}\p{N}]+/gu) ?? []
-}
 
 function validCompatibility(metadata, type) {
   if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata) ||

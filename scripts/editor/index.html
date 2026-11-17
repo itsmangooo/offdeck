@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OFFDECK Card Editor</title>
+  <link rel="stylesheet" href="/editor.css">
+  <script type="module" src="/editor.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span aria-hidden="true">♦</span><h1>OFFDECK <strong>Card Editor</strong></h1></div>
+    <button type="button" id="reload">Reload source</button>
+  </header>
+  <main>
+    <dl class="stats" aria-label="Collection statistics" id="stats"></dl>
+    <div class="workspace">
+      <section class="panel" aria-labelledby="library-title">
+        <div class="panel-head">
+          <h2 id="library-title">Card library</h2>
+          <button type="button" id="new-card" class="primary" disabled>New card</button>
+        </div>
+        <div class="filters">
+          <label class="search">Search<input id="search" type="search" placeholder="Text or ID" autocomplete="off"></label>
+          <div class="filter-row">
+            <label>Filter by type<select id="filter-type"></select></label>
+            <label>Filter by category<select id="filter-category"></select></label>
+            <label>Filter by status<select id="filter-status"></select></label>
+          </div>
+          <label>Filter by tag<input id="filter-tag" type="search" placeholder="Exact tag" autocomplete="off"></label>
+        </div>
+        <p id="matches" aria-live="polite"></p>
+        <ul class="cards" id="cards" aria-label="Matching cards"></ul>
+        <details class="distribution">
+          <summary>Category distribution</summary>
+          <dl id="categories"></dl>
+        </details>
+      </section>
+      <section class="panel edit-panel" aria-labelledby="edit-title">
+        <div class="panel-head">
+          <h2 id="edit-title">Edit card</h2>
+          <code id="card-id"></code>
+        </div>
+        <div class="edit-body">
+          <form id="editor" autocomplete="off">
+            <fieldset id="card-fields" disabled>
+              <div class="field-row">
+                <label>Type<select id="type"></select></label>
+                <label>Status<select id="status"></select></label>
+              </div>
+              <label>Category<select id="category"></select></label>
+              <label>Card text<textarea id="text" rows="4" required></textarea></label>
+              <p class="length" id="length"></p>
+              <label>Tags<input id="tags" placeholder="awkward, confession"></label>
+              <fieldset id="accepted-forms">
+                <legend>Suggested response forms</legend>
+                <div class="forms" id="form-options"></div>
+              </fieldset>
+              <label id="response-form-label">Response form<select id="response-form"></select></label>
+              <p id="duplicates" aria-live="polite"></p>
+              <div class="actions">
+                <button type="submit" class="primary">Save card</button>
+                <button type="button" id="disable">Disable card</button>
+                <button type="button" class="delete" id="delete">Delete card</button>
+              </div>
+            </fieldset>
+          </form>
+          <figure>
+            <canvas id="preview" width="512" height="720" aria-label="Card face preview"></canvas>
+            <figcaption>Card face preview</figcaption>
+          </figure>
+        </div>
+        <p id="feedback" role="status">Loading the source collection…</p>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
