@@ -137,13 +137,14 @@ export class Avatars {
         view.label.material.dispose()
         view.label.material = badge(player,host,status)
         sizeBadge(view.label)
-        if (status !== view.status) {
+        if (status !== view.status && !room.seatSnapshot) {
           view.reaction = view.status === 'offline' ? 'reconnected' : status
           view.reactAt = performance.now()
         }
         view.status = status
         view.key = key
       }
+      if (room.seatSnapshot) view.reaction = null
     }
   }
 
@@ -159,9 +160,9 @@ export class Avatars {
       const {head,label,status,reaction,reactAt} = view
       const wave = seconds*1.55 + view.seat*1.9
       const t = still ? 1 : T.MathUtils.clamp((seconds*1000-reactAt)/650,0,1)
-      const accent = Math.sin(t*Math.PI) * (1-t*.3)
-      const bounce = reaction === 'winner' || reaction === 'reconnected' ? accent*.074 : 0
-      const nod = reaction === 'submitted' || reaction === 'voted' ? accent*.16 : 0
+      const accent = Math.sin(t*Math.PI)**2
+      const bounce = reaction === 'winner' || reaction === 'reconnected' ? accent*.065 : 0
+      const nod = reaction === 'submitted' || reaction === 'voted' || reaction === 'winner' ? accent*.13 : 0
       const down = status === 'offline' ? .083 : 0
       const y = HEAD_HEIGHT-down + (still ? 0 : Math.sin(wave)*.023+bounce)
       head.position.y = y

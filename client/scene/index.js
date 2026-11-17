@@ -148,8 +148,12 @@ export class TableScene {
       this.hover(null)
     }
     const self = room?.players.find(player => player.id === room.selfId)
+    const arrivedInMatch = room?.id !== this.room?.id && room?.match
     this.room = room
     this.seat = self ? SEATS[self.seat] : null
+    if (arrivedInMatch) this.rig.update({
+      seat:this.seat,phase:room.match.phase,still:true,seconds:0,dt:0
+    })
     this.avatars.sync(room)
     const hovered = this.cards.hovered
     this.cards.sync(room)

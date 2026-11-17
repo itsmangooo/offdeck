@@ -30,6 +30,7 @@ let panel = null
 let opener = null
 let pending = false
 let resumeQueued = false
+let seatSnapshot = false
 let messageTimer
 let invite = readInvite()
 let publicOrigin = location.origin
@@ -198,17 +199,22 @@ socket.on('connect', () => {
   if (invite && pending) resumeQueued = true
   else if (invite) enter()
 })
-socket.on('room:seat', joined)
+socket.on('room:seat', seat => {
+  seatSnapshot = true
+  joined(seat)
+})
 socket.on('connect_error', () => { feedback('UNAVAILABLE'); render() })
 socket.on('disconnect', () => render())
 socket.on('room:state', state => {
   const previous = room?.match
   const incoming = state.match
-  if (incoming && (incoming.phase !== previous?.phase || incoming.roundId !== previous?.roundId)) {
+  const catchUp = seatSnapshot
+  seatSnapshot = false
+  if (!catchUp && incoming && (incoming.phase !== previous?.phase || incoming.roundId !== previous?.roundId)) {
     const cue = { select: 'deal', reveal: 'flip', results: 'results', finished: 'finished' }[incoming.phase]
     if (cue) audio.play(cue)
   }
-  room = state
+  room = catchUp ? { ...state,seatSnapshot:true } : state
   receivedAt = performance.now()
   render()
   clock()

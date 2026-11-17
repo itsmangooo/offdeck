@@ -22,6 +22,7 @@ const BORDER = new T.ShapeGeometry(roundedRectangle(WIDTH + .035, HEIGHT + .035,
 const focusMat = new T.MeshBasicMaterial({ color: '#c5d89a', toneMapped: false })
 const winnerMat = new T.MeshBasicMaterial({ color: '#efc979', toneMapped: false })
 const easeOut = t => 1 - (1 - t) ** 3
+const easeTravel = t => t*t*(3-2*t)
 
 function pose(position, rotation, scale) {
   return { position: position.clone(), rotation: rotation.clone(), scale }
@@ -279,41 +280,46 @@ export class Cards {
     }
   }
 
-  move(view, target, start, duration = 360, delay = 0, arc = 0) {
+  move(view,target,start,duration = 285,delay = 0,arc = 0,curve = easeOut) {
     const origin = start ?? view.base ?? target
     view.target = target
     view.base = pose(origin.position,origin.rotation,origin.scale)
-    view.motion = { start: origin, duration, at: this.clock + delay, arc }
+    view.motion = { start:origin,duration,at:this.clock+delay,arc,curve }
   }
 
   incoming(data, yaw, newMatch, collectFlight) {
-    if (data.submitted && collectFlight) return [collectFlight, 425, 0, .30]
+    if (data.submitted && collectFlight) return [collectFlight,380,0,.245,easeTravel]
     if (data.hand) {
       const from = onTable(.68,-.26,yaw,0)
       from.position.y += .32
       this.camera.updateWorldMatrix(true,false)
       const local = this.camera.worldToLocal(from.position)
       const start = pose(local, data.rotation.clone().multiply(FLIPPED), .28)
-      return [start, 590, data.index * 45 + (newMatch ? 220 : 70), .09]
+      return [start,newMatch ? 560 : 435,data.index*(newMatch ? 29 : 11)+(newMatch ? 190 : 45),.115,easeTravel]
     }
     if (data.remote) {
-      const from = onTable(.55,0,yaw,0)
-      return [pose(from.position,from.rotation,.30), 480, data.index * 37, .18]
+      const from = onTable(1.05,-.52,yaw,0)
+      return [pose(from.position,from.rotation,.25),newMatch ? 490 : 410,
+        newMatch ? 175+data.index*28 : data.index*9,.21,easeTravel]
     }
     if (data.kind === 'scenario') {
       const from = onTable(1.34,-.68,yaw,0)
-      return [pose(from.position,from.rotation.clone().multiply(FLIPPED),.62), 740, newMatch ? 240 : 110, .25]
+      return [pose(from.position,from.rotation.clone().multiply(FLIPPED),.62),
+        650,newMatch ? 225 : 90,.22,easeTravel]
     }
     if (data.center) {
       const from = onTable(0,.09,yaw,0)
       from.position.y += data.index * .014
-      return [pose(from.position,from.rotation.clone().multiply(FLIPPED),.60), 630, 210 + data.index * 65, .30]
+      return [pose(from.position,from.rotation.clone().multiply(FLIPPED),.60),
+        530,165+data.index*53,.265,easeTravel]
     }
     if (newMatch && data.key.startsWith('pack:')) {
       const start = pose(data.position, data.rotation, data.scale)
-      start.position.x += data.index % 2 === 0 ? -.34 : .32
-      start.rotation.multiply(new T.Quaternion().setFromAxisAngle(Y_AXIS, data.index * .07))
-      return [start, 410, data.index * 33, .12]
+      const spread = data.index%2 === 0 ? -.28 : .28
+      start.position.x += spread*Math.cos(yaw)
+      start.position.z -= spread*Math.sin(yaw)
+      start.rotation.multiply(new T.Quaternion().setFromAxisAngle(Y_AXIS,spread*.58))
+      return [start,330,data.index*22,.075,easeTravel]
     }
     return []
   }
@@ -334,7 +340,7 @@ export class Cards {
     if (faceDown) view.surface.material = this.back
     const destination = faceDown ? onTable(0,.12,yaw,0) : onTable(-1.44,-.53,yaw,0)
     const target = pose(destination.position, destination.rotation, faceDown ? .60 : .38)
-    this.move(view,target,base,faceDown ? 420 : 380,0,faceDown ? .33 : .14)
+    this.move(view,target,base,faceDown ? 380 : 410,0,faceDown ? .245 : .14,easeTravel)
     view.lift = 0
     this.retired.push(view)
   }
@@ -343,7 +349,12 @@ export class Cards {
     this.clock = performance.now()
     const prior = this.room?.match
     const current = room?.match
+    const catchUp = Boolean(current && (room.seatSnapshot || room.id !== this.room?.id))
     this.room = room
+    if (catchUp) {
+      for (const view of this.retired) this.dispose(view)
+      this.retired.length = 0
+    }
     const self = room?.players.find(player => player.id === room.selfId)
     const yaw = self ? SEATS[self.seat].yaw : 0
     const sameRound = prior && current?.roundId === prior.roundId
@@ -360,7 +371,9 @@ export class Cards {
       if (this.hovered === view) this.hovered = null
       const { data } = view
       const faceDown = (data.hand && submittedNow.has(self?.id)) || (data.remote && submittedNow.has(data.memberId))
-      if (faceDown && flights.length < needed) {
+      if (catchUp) {
+        this.dispose(view)
+      } else if (faceDown && flights.length < needed) {
         flights.push(this.worldPose(view))
         this.dispose(view)
       } else if (faceDown || (prior?.roundId !== current?.roundId && (data.center || data.kind === 'scenario'))) {
@@ -376,10 +389,18 @@ export class Cards {
         view = this.build(data)
         this.views.set(data.key,view)
         data.parent.add(view.group)
-        const [start,duration,delay,arc] = this.incoming(data,yaw,newMatch,data.submitted ? flights.shift() : null)
-        this.move(view,target,start,duration,delay,arc)
-      } else if (changed(view.target,target)) {
+        if (!catchUp) {
+          const [start,duration,delay,arc,curve] = this.incoming(data,yaw,newMatch,data.submitted ? flights.shift() : null)
+          this.move(view,target,start,duration,delay,arc,curve)
+        }
+      } else if (!catchUp && changed(view.target,target)) {
         this.move(view,target)
+      }
+      if (catchUp) {
+        view.target = target
+        view.base = pose(target.position,target.rotation,target.scale)
+        view.motion = null
+        view.lift = 0
       }
       if (data.center && view.data && view.data.author !== data.author && data.author !== undefined) {
         view.front.map.dispose()
@@ -396,7 +417,7 @@ export class Cards {
     let arc = 0
     if (motion) {
       const progress = this.still ? 1 : T.MathUtils.clamp((time - motion.at) / motion.duration,0,1)
-      const eased = easeOut(progress)
+      const eased = motion.curve(progress)
       base.position.lerpVectors(motion.start.position,target.position,eased)
       base.rotation.slerpQuaternions(motion.start.rotation,target.rotation,eased)
       base.scale = T.MathUtils.lerp(motion.start.scale,target.scale,eased)
