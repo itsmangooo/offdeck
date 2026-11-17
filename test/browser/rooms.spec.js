@@ -1,13 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-export async function openPlayer(browser, name, url = '/') {
-  const context = await browser.newContext()
-  const page = await context.newPage()
-  await page.goto(url === '/' ? 'http://127.0.0.1:3097' : url)
-  await page.getByLabel('Nickname').fill(name)
-  await page.getByRole('button', { name: 'Continue' }).click()
-  return { context, page }
-}
+import { openPlayer } from './players.js'
 
 test('independent players join, refresh, migrate host and see capacity and link errors', async ({ browser }) => {
   const alice = await openPlayer(browser, 'Alice')

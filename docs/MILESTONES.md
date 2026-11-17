@@ -15,3 +15,4 @@ Each milestone requires implementation, relevant automated tests, and a check in
 ## Verification record
 
 - **1. Verified** with the Vite production build, three Node tests and a Chromium test using independent browser contexts. The browser test covered shareable links, joining, readiness, refresh recovery, host departure, capacity and invalid invitation feedback. The development command served the application on port 3000.
+- **2. Verified** with 100 original scenarios, 400 original responses, 9 passing Node tests, the production build and a three-context Chromium match covering three unique scenarios, private hands, response reveal, voting, tied scores, deck exhaustion and a rematch in the same room.

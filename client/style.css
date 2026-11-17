@@ -28,3 +28,14 @@ li { border-top: 1px solid #e0e2da; padding: 10px 0 }
 .dialog header { margin-bottom: 16px }
 .connection,#notice:not(:empty) { position: fixed; z-index: 5; bottom: 20px; right: 20px; background: #fff; border: 1px solid #d8d9d1; border-radius: 5px; padding: 10px 14px }
 .connection { bottom: auto; top: 20px }
+.match { width: min(100%, 980px); justify-self: center }
+.game-meta { display: flex; gap: 16px; margin-top: 14px; color: #4d594c }
+.scenario { margin: 16px 0; padding: 18px; border-radius: 5px; background: #171c19; color: white; font-size: 21px }
+.hand,.responses { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 16px 0 }
+.hand button,.response { text-align: left; font-weight: 500; width: 100%; min-height: 72px }
+.responses small { display: block; padding: 4px 8px }
+.responses article,.scores li { border-radius: 4px }
+.winner { background: #e2eacf }
+.scores { padding: 0; list-style: none }
+.scores li { padding-inline: 8px }
+.final-results { justify-self: center }

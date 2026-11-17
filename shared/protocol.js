@@ -21,5 +21,12 @@ export const errors = {
   SLOW_DOWN: 'Too many actions. Try again in a moment.',
   UNAVAILABLE: 'The server is unavailable. Try again.',
   ROOM_LIMIT: 'The server is at capacity. Try again later.',
-  FORBIDDEN: 'Only the host can do that.'
+  FORBIDDEN: 'Only the host can do that.',
+  NEED_PLAYERS: 'At least three connected players are needed.',
+  BAD_PHASE: 'That action is unavailable in this phase.',
+  BAD_CARD: 'That card is no longer available.',
+  NOT_ELIGIBLE: 'You are not eligible for that action.',
+  ALREADY_SUBMITTED: 'Your response is already locked in.',
+  ALREADY_VOTED: 'Your vote is already locked in.',
+  OWN_CARD: 'Choose another player’s response.'
 }

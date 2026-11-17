@@ -4,13 +4,18 @@ import { fileURLToPath } from 'node:url'
 import { Server } from 'socket.io'
 import { RoomStore, RuleError, requireRule } from './rooms.js'
 import { nickname } from '../shared/protocol.js'
+import { Match } from './match.js'
+import { starterDecks } from './decks.js'
 
 export async function startServer({
   port = Number(process.env.PORT || 3000),
   host = process.env.HOST || '127.0.0.1',
   dev = false,
   publicOrigin = process.env.PUBLIC_ORIGIN,
-  store = new RoomStore()
+  store = new RoomStore(),
+  decks = starterDecks,
+  timing,
+  tickMs = 150
 } = {}) {
   const origin = publicOrigin ? new URL(publicOrigin).origin : null
   const app = express()
@@ -38,14 +43,33 @@ export async function startServer({
     app.get(['/', '/sid/{*path}'], (_request, response) => response.sendFile('index.html', { root: dist }))
   }
 
+  function step(room) {
+    const now = store.now()
+    if (!room.match?.update(room, now)) return false
+    room.touched = now
+    return true
+  }
+
   function broadcast(room) {
     room.revision++
     for (const viewer of room.players.values()) {
-      if (viewer.socketId) io.to(viewer.socketId).emit('room:state', store.snapshot(room, viewer))
+      if (!viewer.socketId) continue
+      io.to(viewer.socketId).emit('room:state', {
+        ...store.snapshot(room, viewer),
+        match: room.match?.view(room, viewer) ?? null
+      })
     }
   }
 
-  const timer = setInterval(() => store.sweep(broadcast, room => {
+  function publish(room) {
+    step(room)
+    broadcast(room)
+  }
+
+  const gameTimer = setInterval(() => {
+    for (const room of store.rooms.values()) if (step(room)) broadcast(room)
+  }, tickMs)
+  const cleanupTimer = setInterval(() => store.sweep(publish, room => {
     for (const player of room.players.values()) {
       const socket = io.sockets.sockets.get(player.socketId)
       if (!socket) continue
@@ -53,8 +77,12 @@ export async function startServer({
       socket.emit('room:closed', 'ROOM_GONE')
     }
   }), 1000)
-  timer.unref()
-  http.on('close', () => clearInterval(timer))
+  gameTimer.unref()
+  cleanupTimer.unref()
+  http.on('close', () => {
+    clearInterval(gameTimer)
+    clearInterval(cleanupTimer)
+  })
 
   io.on('connection', socket => {
     let credit = 20
@@ -70,7 +98,10 @@ export async function startServer({
           requireRule(credit >= cost, 'SLOW_DOWN')
           credit -= cost
           const membership = socket.data.membership
-          if (member) requireRule(membership?.player.socketId === socket.id, 'NO_ROOM')
+          if (member) {
+            requireRule(membership?.player.socketId === socket.id, 'NO_ROOM')
+            if (step(membership.room)) broadcast(membership.room)
+          }
           const value = handler(payload ?? {}, membership)
           ack({ ok: true, ...value })
         } catch (error) {
@@ -87,7 +118,7 @@ export async function startServer({
         previous.emit('room:closed', 'REPLACED')
       }
       socket.data.membership = { room, player }
-      broadcast(room)
+      publish(room)
       return { id: room.id, token: player.token }
     }
 
@@ -108,9 +139,10 @@ export async function startServer({
       delete socket.data.membership
       store.remove(room, player)
       room.touched = store.now()
-      broadcast(room)
+      publish(room)
     })
     action('player:ready', ({ ready }, { room, player }) => {
+      requireRule(!room.match, 'BAD_PHASE')
       requireRule(typeof ready === 'boolean', 'FORBIDDEN')
       player.ready = ready
       room.touched = store.now()
@@ -120,14 +152,43 @@ export async function startServer({
       const normalized = nickname(name)
       requireRule(normalized, 'BAD_NAME')
       player.name = normalized
+      if (room.match?.roster.has(player.id)) room.match.roster.get(player.id).name = normalized
       room.touched = store.now()
       broadcast(room)
+    })
+    action('match:start', (_payload, { room, player }) => {
+      requireRule(room.hostId === player.id, 'FORBIDDEN')
+      requireRule(!room.match?.active, 'BAD_PHASE')
+      room.match = new Match(room, decks, store.now(), timing)
+      room.touched = store.now()
+      broadcast(room)
+    })
+    action('match:lobby', (_payload, { room, player }) => {
+      requireRule(room.hostId === player.id, 'FORBIDDEN')
+      requireRule(room.match?.phase === 'finished', 'BAD_PHASE')
+      room.match = null
+      for (const member of room.players.values()) member.ready = false
+      room.touched = store.now()
+      broadcast(room)
+    })
+    action('match:submit', (payload, { room, player }) => {
+      requireRule(room.match, 'BAD_PHASE')
+      room.match.submit(room, player, payload)
+      room.touched = store.now()
+      publish(room)
+    })
+    action('match:vote', (payload, { room, player }) => {
+      requireRule(room.match, 'BAD_PHASE')
+      room.match.vote(room, player, payload)
+      room.touched = store.now()
+      publish(room)
     })
     socket.on('disconnect', () => {
       const membership = socket.data.membership
       if (!membership || membership.player.socketId !== socket.id) return
       store.disconnect(membership.room, membership.player)
-      broadcast(membership.room)
+      membership.room.touched = store.now()
+      publish(membership.room)
     })
   })
 

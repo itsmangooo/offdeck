@@ -1,6 +1,8 @@
 import { io } from 'socket.io-client'
 import { DEFAULT_CONFIG, ROOM_ID, errors, nickname } from '../shared/protocol.js'
 import { readNickname, saveNickname } from './preferences.js'
+import { button, escapeHtml } from './ui.js'
+import { gameMarkup } from './game-ui.js'
 import './style.css'
 
 const app = document.querySelector('#app')
@@ -9,6 +11,7 @@ const socket = io({ transports: ['websocket'] })
 const storage = window.localStorage
 let name = readNickname(storage)
 let room = null
+let receivedAt = 0
 let panel = null
 let pending = false
 let messageTimer
@@ -45,11 +48,6 @@ function navigate(id = null) {
   invite = id
   const path = id ? '/sid/' + id + '/' : '/'
   if (location.pathname !== path) history.replaceState(null, '', path)
-}
-
-export function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, character =>
-    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
 }
 
 function feedback(code) {
@@ -122,7 +120,12 @@ socket.on('connect', () => {
 })
 socket.on('connect_error', () => { feedback('UNAVAILABLE'); render() })
 socket.on('disconnect', () => render())
-socket.on('room:state', state => { room = state; render() })
+socket.on('room:state', state => {
+  room = state
+  receivedAt = performance.now()
+  render()
+  clock()
+})
 socket.on('room:closed', code => {
   if (code !== 'REPLACED' && invite) remember(invite, null)
   room = null
@@ -131,10 +134,6 @@ socket.on('room:closed', code => {
   feedback(code)
   render()
 })
-
-function button(label, action, { primary = false, disabled = false } = {}) {
-  return `<button type="button" class="${primary ? 'primary' : ''}" data-action="${action}" ${disabled ? 'disabled' : ''}>${label}</button>`
-}
 
 function nameField() {
   return `<label>Nickname<input name="name" value="${escapeHtml(name)}" required maxlength="48" autocomplete="nickname"></label>`
@@ -156,6 +155,7 @@ function menu() {
 
 function lobby() {
   const self = room.players.find(player => player.id === room.selfId)
+  const connected = room.players.filter(player => player.connected).length
   const link = publicOrigin + '/sid/' + room.id + '/'
   return `<section class="lobby panel">
     <header><h1>Room lobby</h1><span>${room.players.filter(player => player.connected).length}/${room.config.capacity} connected</span></header>
@@ -165,6 +165,7 @@ function lobby() {
     </li>`).join('')}</ul>
     <label>Invitation link<input id="invitation" readonly value="${escapeHtml(link)}"></label>
     <div class="actions">
+      ${room.hostId === room.selfId ? button('Start Game', 'start', { primary: true, disabled: pending || !socket.connected || connected < 3 }) : ''}
       ${button('Copy Link', 'copy')}
       ${button(self?.ready ? 'Unready' : 'Ready', 'ready', { primary: true, disabled: pending || !socket.connected })}
       ${button('Settings', 'settings')}
@@ -202,7 +203,7 @@ function render() {
   const focused = document.activeElement
   const field = focused?.name
   // Leave an open form in place across unrelated room updates.
-  const base = room ? lobby() : menu()
+  const base = room?.match ? gameMarkup(room, pending || !socket.connected) : room ? lobby() : menu()
   const html = `${base}${!socket.connected ? '<div class="connection" role="status">Connecting to OFFDECK…</div>' : ''}${overlay()}`
   if (app.dataset.render === html) return
   const openForm = app.querySelector('.dialog form')
@@ -221,10 +222,24 @@ function render() {
     const replacement = [...app.querySelectorAll('input')].find(input => input.name === field)
     replacement?.focus()
   }
+  clock()
 }
 
+function clock() {
+  const display = document.querySelector('#countdown')
+  if (!display) return
+  const match = room?.match
+  const serverTime = room.serverNow + performance.now() - receivedAt
+  const seconds = match?.deadline ? Math.max(0, Math.ceil((match.deadline - serverTime) / 1000)) : null
+  const text = seconds === null ? 'Paused' : seconds + 's'
+  if (display.textContent !== text) display.textContent = text
+}
+
+setInterval(clock, 150)
+
 app.addEventListener('click', async event => {
-  const action = event.target.closest('[data-action]')?.dataset.action
+  const control = event.target.closest('[data-action]')
+  const action = control?.dataset.action
   if (!action) return
   if (['play', 'create', 'join', 'help', 'settings'].includes(action)) panel = action
   if (action === 'close') {
@@ -232,6 +247,10 @@ app.addEventListener('click', async event => {
     panel = null
   }
   if (action === 'leave') leave()
+  if (action === 'start') request('match:start')
+  if (action === 'lobby') request('match:lobby')
+  if (action === 'submit') request('match:submit', { cardId: control.dataset.card, roundId: room.match.roundId })
+  if (action === 'vote') request('match:vote', { responseId: control.dataset.card, roundId: room.match.roundId })
   if (action === 'ready') {
     const self = room.players.find(player => player.id === room.selfId)
     request('player:ready', { ready: !self.ready })
