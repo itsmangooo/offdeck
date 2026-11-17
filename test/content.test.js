@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { starterDecks } from '../server/decks.js'
 import { reviewHands } from '../scripts/review-cards.js'
-import { cardWords } from '../shared/card-similarity.js'
+import { similarPairs, validateRelease } from '../scripts/validate-cards.js'
 import { approvedDecks, parseLibrary, readCardLibrary, validateLibrary } from '../server/card-library.js'
 
 const library = readCardLibrary()
@@ -82,23 +82,18 @@ test('offline pairing samples cover each category and only use approved cards', 
   assert.ok(without.some(({ hand }) => hand.some(card => !card.compatibility)))
 })
 
-test('near-identical phrasing is flagged for editorial review', () => {
-  const duplicates = []
-  for (const deck of Object.values(starterDecks)) {
-    const entries = deck.map(card => ({ ...card, words: new Set(cardWords(card.text)) }))
-    for (const [index, card] of entries.entries()) {
-      if (card.words.size < 6) continue
-      for (let j = 0; j < index; j++) {
-        const other = entries[j]
-        const largest = Math.max(card.words.size, other.words.size)
-        if (Math.min(card.words.size, other.words.size) / largest < .82) continue
-        let shared = 0
-        for (const word of card.words) if (other.words.has(word)) shared++
-        if (shared / (card.words.size + other.words.size - shared) >= .82) {
-          duplicates.push(card.id + ' / ' + other.id + ' — ' + card.text + ' / ' + other.text)
-        }
-      }
-    }
-  }
-  assert.deepEqual(duplicates, [])
+test('the release requires 250 approved scenarios and 750 approved responses', () => {
+  assert.deepEqual(Object.values(validateRelease(library).scenario).sort(), [41,41,42,42,42,42])
+  assert.ok(Object.values(validateRelease(library).response).every(count => count === 125))
+  const edited = structuredClone(library)
+  edited.scenario[0].status = 'draft'
+  assert.throws(() => validateRelease(edited), /Expected 250 approved scenario cards/)
+})
+
+test('the same duplicate check flags short edits and scans every card in the release', () => {
+  const first = library.response.find(card => card.id === 'response-001')
+  const variant = { ...first, id: 'response-999999', text: 'A safe word neither of us could spell correctly.' }
+  const unrelated = { ...variant, id: 'response-999998', text: 'The bartender who reads palms at funerals.' }
+  assert.deepEqual(similarPairs({ response: [first, unrelated, variant] }), [[first.id, variant.id]])
+  assert.deepEqual(similarPairs(library), [])
 })

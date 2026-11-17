@@ -12,7 +12,9 @@
     "start": "node --env-file-if-exists=.env server/index.js",
     "test": "node --test test/*.test.js",
     "test:browser": "playwright test",
-    "cards:edit": "node scripts/card-editor.js"
+    "cards:edit": "node scripts/card-editor.js",
+    "cards:validate": "node scripts/validate-cards.js",
+    "cards:review": "node scripts/review-cards.js"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
