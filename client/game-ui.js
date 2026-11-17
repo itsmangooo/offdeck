@@ -20,6 +20,8 @@ export function gameMarkup(room, disabled) {
     ${match.phase === 'select' && !match.canSubmit && !match.paused && !match.spectator ? '<p role="status">Response locked in.</p>' : ''}
     ${match.phase === 'vote' && match.voted ? '<p role="status">Vote locked in.</p>' : ''}
     ${match.phase === 'vote' && !match.canVote && !match.voted && !match.paused && !match.spectator ? '<p role="status">Submit a response next round to vote.</p>' : ''}
+    <details class="table-controls" ${document.body.classList.contains('has-scene') ? '' : 'open'}>
+    <summary>Card list</summary>
     ${match.responses.length ? `<div class="responses" aria-label="Revealed responses">${match.responses.map(response =>
       `<article class="${response.winner ? 'winner' : ''}">
         <button class="response" type="button" data-action="vote" data-card="${response.id}"
@@ -30,6 +32,7 @@ export function gameMarkup(room, disabled) {
     ${match.phase === 'results' && !match.responses.some(response => response.winner) ? '<p>No votes were cast this round.</p>' : ''}
     ${match.phase === 'select' && match.hand.length ? `<div class="hand" aria-label="Your hand">${match.hand.map(card =>
       `<button type="button" data-action="submit" data-card="${card.id}" ${disabled || !match.canSubmit ? 'disabled' : ''}>${safe(card.text)}</button>`).join('')}</div>` : ''}
+    </details>
     ${scores(match, room.selfId)}
     <div class="actions">${button('Settings', 'settings')}${button('Leave Room', 'leave', { disabled })}</div>
   </section>`

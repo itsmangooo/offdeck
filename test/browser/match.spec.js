@@ -20,6 +20,8 @@ test('three independent browsers play every scenario and can replay in the same 
     expect(scenarios.has(scenario)).toBe(false)
     scenarios.add(scenario)
     const hands = await Promise.all(pages.map(async page => {
+      const list = page.locator('.table-controls')
+      if (await list.getAttribute('open') === null) await list.locator('summary').click()
       await expect(page.locator('.scenario')).toHaveText(scenario)
       const buttons = page.locator('.hand button')
       await expect(buttons).toHaveCount(7)

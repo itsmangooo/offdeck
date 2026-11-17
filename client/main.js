@@ -7,6 +7,10 @@ import './style.css'
 
 const app = document.querySelector('#app')
 const notice = document.querySelector('#notice')
+const view = document.querySelector('#view')
+const modal = document.querySelector('#modal')
+let viewMarkup
+let modalMarkup
 const socket = io({ transports: ['websocket'] })
 const storage = window.localStorage
 let name = readNickname(storage)
@@ -17,6 +21,30 @@ let pending = false
 let messageTimer
 let invite = readInvite()
 let publicOrigin = location.origin
+let scene
+const canvasArea = document.querySelector('#scene')
+document.body.classList.add('loading-scene')
+
+import('./scene/index.js').then(({ TableScene }) => {
+  scene = new TableScene(canvasArea)
+  scene.sync(room)
+  document.body.classList.add('has-scene')
+  canvasArea.addEventListener('sceneunavailable', () => {
+    document.body.classList.remove('has-scene')
+    feedback('The 3D view was interrupted. You can continue with the card list.')
+    render()
+  })
+  canvasArea.addEventListener('scenerestored', () => {
+    document.body.classList.add('has-scene')
+    render()
+  })
+}).catch(error => {
+  console.error('Could not initialize the 3D view', error)
+  feedback('The 3D view could not load. Card controls are available.')
+}).finally(() => {
+  document.body.classList.remove('loading-scene')
+  render()
+})
 
 fetch('/api/config').then(response => response.json()).then(config => {
   if (config.publicOrigin) publicOrigin = config.publicOrigin
@@ -200,18 +228,31 @@ function overlay() {
 }
 
 function render() {
+  scene?.sync(room)
   const focused = document.activeElement
   const field = focused?.name
   // Leave an open form in place across unrelated room updates.
   const base = room?.match ? gameMarkup(room, pending || !socket.connected) : room ? lobby() : menu()
-  const html = `${base}${!socket.connected ? '<div class="connection" role="status">Connecting to OFFDECK…</div>' : ''}${overlay()}`
-  if (app.dataset.render === html) return
-  const openForm = app.querySelector('.dialog form')
+  const loading = document.body.classList.contains('loading-scene') ? '<div class="render-loading" role="status">Opening the card room…</div>' : ''
+  const html = `${base}${loading}${!socket.connected ? '<div class="connection" role="status">Connecting to OFFDECK…</div>' : ''}`
+  if (viewMarkup !== html) {
+    const listExpanded = view.querySelector('.table-controls')?.open
+    view.innerHTML = html
+    viewMarkup = html
+    const list = view.querySelector('.table-controls')
+    if (listExpanded && list) list.open = true
+  }
+  const dialogHtml = overlay()
+  if (modalMarkup === dialogHtml) {
+    clock()
+    return
+  }
+  const openForm = modal.querySelector('.dialog form')
   const prior = openForm && !pending ? [...new FormData(openForm)] : []
   const formType = openForm?.dataset.form
-  app.innerHTML = html
-  app.dataset.render = html
-  const newForm = app.querySelector('.dialog form')
+  modal.innerHTML = dialogHtml
+  modalMarkup = dialogHtml
+  const newForm = modal.querySelector('.dialog form')
   if (newForm?.dataset.form === formType) {
     for (const [key, value] of prior) {
       const input = newForm?.elements.namedItem(key)
@@ -219,7 +260,7 @@ function render() {
     }
   }
   if (field && focused !== document.body) {
-    const replacement = [...app.querySelectorAll('input')].find(input => input.name === field)
+    const replacement = [...modal.querySelectorAll('input')].find(input => input.name === field)
     replacement?.focus()
   }
   clock()
