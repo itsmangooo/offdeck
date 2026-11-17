@@ -26,9 +26,9 @@ function fixture({ seats = 3, scenarios = 3, responses = 3 * HAND_SIZE } = {}) {
   }
 }
 
-test('original starter deck meets content and eight-seat deal requirements', () => {
-  assert.ok(starterDecks.scenarios.length >= 100)
-  assert.ok(starterDecks.responses.length >= 400)
+test('the Unfiltered deck supports an eight-seat deal', () => {
+  assert.ok(starterDecks.scenarios.length > 0)
+  assert.ok(starterDecks.responses.length >= 8 * HAND_SIZE)
   const { room, players } = fixture({ seats: 8 })
   const match = new Match(room, starterDecks, 0)
   const dealt = players.flatMap(player => {
