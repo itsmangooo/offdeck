@@ -149,6 +149,65 @@ export class Cards {
     this.clock = performance.now()
     this.hovered = null
     this.still = false
+    this.inspection = null
+  }
+
+  get inspecting() {
+    return Boolean(this.inspection && !this.inspection.closing)
+  }
+
+  inspectionPose(view) {
+    const world = this.worldPose(view)
+    this.camera.updateWorldMatrix(true,false)
+    const inverse = this.camera.getWorldQuaternion(new T.Quaternion()).invert()
+    return pose(this.camera.worldToLocal(world.position),inverse.multiply(world.rotation),world.scale)
+  }
+
+  inspect(open, immediate) {
+    const current = this.inspection
+    if (open) {
+      if (this.inspecting) return false
+      const source = [...this.views.values()].find(view => view.data.kind === 'scenario')
+      if (!source) return false
+      if (current) this.finishInspection()
+      const group = source.group.clone()
+      const from = this.inspectionPose(source)
+      const target = pose(new T.Vector3(0,.02,-1.43),UP,.89)
+      group.position.copy(from.position)
+      group.quaternion.copy(from.rotation)
+      group.scale.setScalar(from.scale)
+      source.group.visible = false
+      this.camera.add(group)
+      this.inspection = { source,group,from,target,at:performance.now(),closing:false }
+      return true
+    }
+    if (!current) return false
+    if (immediate || this.still) this.finishInspection()
+    else if (!current.closing) {
+      current.from = pose(current.group.position,current.group.quaternion,current.group.scale.x)
+      current.target = this.inspectionPose(current.source)
+      current.closing = true
+      current.at = performance.now()
+    }
+    return true
+  }
+
+  finishInspection() {
+    const { source,group } = this.inspection
+    group.removeFromParent()
+    source.group.visible = true
+    this.inspection = null
+  }
+
+  animateInspection(time) {
+    if (!this.inspection) return
+    const { group,from,target,at,closing } = this.inspection
+    const progress = this.still ? 1 : T.MathUtils.clamp((time-at) / (closing ? 225 : 265),0,1)
+    const t = easeOut(progress)
+    group.position.lerpVectors(from.position,target.position,t)
+    group.quaternion.slerpQuaternions(from.rotation,target.rotation,t)
+    group.scale.setScalar(T.MathUtils.lerp(from.scale,target.scale,t))
+    if (closing && progress === 1) this.finishInspection()
   }
 
   build(data) {
@@ -304,6 +363,7 @@ export class Cards {
   }
 
   dispose(view) {
+    if (this.inspection?.source === view) this.finishInspection()
     view.group.removeFromParent()
     view.shadow?.removeFromParent()
     if (view.front === this.back) return
@@ -393,13 +453,14 @@ export class Cards {
     const selected = !retired && view === this.hovered
     const ease = this.still ? 1 : 1 - Math.exp(-dt * 16)
     view.lift += (Number(selected) - view.lift) * ease
-    group.position.y += view.lift * (view.data.hand ? .136 : .19)
+    const scenario = view.data.kind === 'scenario'
+    group.position.y += view.lift * (scenario ? .045 : view.data.hand ? .136 : .19)
     if (view.data.hand) group.position.z += view.lift * .058
     const pulse = this.still || !view.pressedAt ? 0 : Math.max(0,1 - (time - view.pressedAt) / 260)
     const winner = !retired && view.data.winner
     view.winLift += (Number(Boolean(winner)) - view.winLift) * ease
     group.position.y += view.winLift * .075
-    group.scale.setScalar(base.scale * (1 + view.lift * .13 + pulse * .07 + view.winLift * .04))
+    group.scale.setScalar(base.scale * (1 + view.lift * (scenario ? .035 : .13) + pulse * .07 + view.winLift * .04))
     view.border.visible = Boolean(winner || view.lift > .12 || pulse)
     view.border.material = winner ? winnerMat : focusMat
     if (view.shadow) {
@@ -411,6 +472,7 @@ export class Cards {
   }
 
   animate(time,dt) {
+    this.animateInspection(time)
     for (const view of this.views.values()) this.advance(view,time,dt)
     this.retired = this.retired.filter(view => {
       if (this.advance(view,time,dt,true)) return true
@@ -421,8 +483,8 @@ export class Cards {
 
   pick(ray) {
     const match = this.room?.match
-    const candidates = [...this.views.values()].filter(view =>
-      (view.data.hand && match?.phase === 'select') || view.data.center || view.data.kind === 'scenario')
+    const candidates = [...this.views.values()].filter(view => view.group.visible &&
+      ((view.data.hand && match?.phase === 'select') || view.data.center || view.data.kind === 'scenario'))
     const meshes = candidates.map(view => {
       view.group.updateWorldMatrix(true,true)
       return view.group.children[0]

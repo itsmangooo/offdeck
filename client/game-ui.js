@@ -28,6 +28,7 @@ export function gameMarkup(room, disabled) {
     ${match.phase === 'vote' && !match.canVote && !match.voted && !match.paused && !match.spectator ? '<p role="status">Submit a response next round to vote.</p>' : ''}
     <details class="table-controls" ${document.body.classList.contains('has-scene') ? '' : 'open'}>
     <summary>Card list</summary>
+    ${document.body.classList.contains('has-scene') ? button('Inspect Scenario','inspect', { glyph: 'cards' }) : ''}
     ${match.responses.length ? `<div class="responses" aria-label="Revealed responses">${match.responses.map(response =>
       `<article class="${response.winner ? 'winner' : ''}">
         <button class="response" type="button" data-action="vote" data-card="${response.id}"

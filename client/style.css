@@ -130,5 +130,8 @@ li > span { overflow-wrap: anywhere }
   .has-scene .score-panel { right: calc(50% - 49vw); width: 17vw }
   .menu { margin-left: 0 }
 }
+#close-inspection { position: fixed; z-index: 2; left: 50%; top: 82%; transform: translateX(-50%); }
+#close-inspection[hidden] { display: none }
+#close-inspection kbd { margin-left: 6px; font: inherit; font-size: .76rem; color: var(--muted) }
 .reduced-motion .render-loading::before { animation: none }
 @media (prefers-reduced-motion: reduce) { .render-loading::before { animation: none } }

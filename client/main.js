@@ -48,6 +48,17 @@ import('./scene/index.js').then(({ TableScene }) => {
     if (!panel) playCard(event.detail.action, event.detail.id)
   })
   canvasArea.addEventListener('owncard', () => feedback('OWN_CARD'))
+  canvasArea.addEventListener('scenarioinspection', event => {
+    const close = document.querySelector('#close-inspection')
+    if (event.detail) {
+      close.hidden = false
+      if (view.contains(document.activeElement)) close.focus({ preventScroll: true })
+    } else {
+      const restoreFocus = document.activeElement === close
+      close.hidden = true
+      if (restoreFocus) view.querySelector('[data-action="inspect"]')?.focus({ preventScroll: true })
+    }
+  })
   document.body.classList.add('has-scene')
   canvasArea.addEventListener('sceneunavailable', () => {
     document.body.classList.remove('has-scene')
@@ -70,6 +81,11 @@ fetch('/api/config').then(response => response.json()).then(config => {
   if (config.publicOrigin) publicOrigin = config.publicOrigin
   render()
 }).catch(() => {})
+
+document.querySelector('#close-inspection').addEventListener('click', () => scene?.inspectScenario(false))
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && scene?.cards.inspecting) scene.inspectScenario(false)
+})
 
 function readInvite() {
   const match = /^\/sid\/([^/]+)\/?$/.exec(location.pathname)
@@ -372,6 +388,7 @@ app.addEventListener('click', async event => {
     if (!room && invite) leave()
     panel = null
   }
+  if (action === 'inspect') scene?.inspectScenario()
   if (action === 'leave') leave()
   if (action === 'start') request('match:start')
   if (action === 'lobby') request('match:lobby')
