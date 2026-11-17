@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 — Content Overhaul
+
+- Audited all 1,000 cards and rewrote or replaced more than 750. The collection remains 250 approved scenarios and 750 approved responses.
+- Varied the adult scenarios with questions, overheard dialogue, messages, confessions and fill-ins. Most responses now read in two to twelve words.
+- Added typed JSON records with stable IDs, approval states, tags and optional response-form notes. The game loads approved cards.
+- Added a loopback-only content editor with search, filters, a card-face preview, duplicate warnings and validated writes to the source files.
+- Added release validation and reproducible pairing review. Compatibility notes guide editing while the server continues to deal shuffled hands.
+- Verified the full 20-scenario match with eight WebSocket clients, complete browser matches and every approved card face. See the [verification record](docs/V0.3.1.md).
+
 ## 0.3.0 — Unfiltered Update
 
 - Replaced the default deck with 1,000 original English cards for adults, including 250 scenarios and 750 responses across six humor categories.

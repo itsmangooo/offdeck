@@ -4,7 +4,9 @@ OFFDECK is a first-person 3D party card game for **3–8 adults** in a desktop b
 
 **18+ content warning.** OFFDECK contains explicit language, sexual humor, dark comedy, and mature themes. First-time visitors confirm they are 18 or older. The browser remembers this self-declaration locally.
 
-The Unfiltered Update brings **1,000 original English cards** to the default game, with **250 scenarios** and **750 responses**. Cards span hookups, dating disasters, relationship expectations, dark humor, social taboos and surreal comedy. The server draws **20 unique scenarios** for each standard match. It balances categories and favors cards the room hasn't seen recently. Response cards are shuffled, dealt privately, and recycled only if the draw pile runs out. Recent card history stays with the room across rematches.
+The v0.3.1 content overhaul ships **250 approved scenarios** and **750 approved responses**. It replaces or rewrites more than 750 cards, with shorter punchlines and prompts that include overheard lines, messages, confessions and fill-ins. **733 responses** are two to twelve words.
+
+Each standard match draws **20 unique scenarios**. The server balances scenario categories and favors cards the room hasn't seen recently. It shuffles responses, deals them privately and recycles them when the draw pile runs out. Recent card history stays with the room across rematches.
 
 ## Screenshots
 
@@ -42,19 +44,42 @@ For friends on your LAN, set `HOST=0.0.0.0` in a local `.env` and have everyone 
 
 Move the mouse to look around from your seat. Open **Card list** in the upper-left HUD for keyboard submission, voting and scenario inspection. Reduced motion holds the camera steady and settles cards directly into place. Graphics quality adjusts resolution and shadows. A newcomer joining an active match spectates and can play in the next one.
 
+## Card collection
+
+The source database is [scenarios.json](decks/scenarios.json) and [responses.json](decks/responses.json). Each record has a stable `id`, `type`, `text`, primary `category` and `status`. Use optional `tags` for secondary themes and optional `compatibility` notes for response forms. The six categories are Sex & Hookups, Dating & Relationships, Men vs. Women, Dark Humor, Social Disasters and Unhinged.
+
+- **Draft** keeps a work in progress available for editing.
+- **Approved** makes a card eligible to appear in games.
+- **Disabled** removes the card from play while preserving its record and ID.
+
+### Add or revise cards
+
+1. Run `npm run cards:edit` and open [the local editor](http://127.0.0.1:3417). It runs as a separate loopback-only process.
+2. Choose **New card** or search for an existing card by text or ID. Choose a type and primary category, then enter up to 120 characters. Use one `____` for a fill-in. Add comma-separated lowercase tags or response forms when they help review.
+3. Read the line aloud, inspect the shared-renderer preview and check the similar-card warning. Save new work as **Draft**. Switch it to **Approved** after review. **Disable card** is reversible. **Delete card** permanently removes the record after confirmation.
+4. Review the JSON diff and validate the collection. Restart the game server to load approved edits.
+
+```sh
+npm run cards:validate
+npm run cards:review -- full-031 --all-responses
+```
+
+When editing JSON directly, reserve new IDs for new premises and keep IDs stable for revisions. The database supports additional cards without changing match size. When a future release expands the approved collection, update the release-count check in `scripts/validate-cards.js` and the corresponding assertions. See the [writing guide](docs/CARD_STYLE.md), [pairing review](docs/CARD_REVIEW.md) and [local editor screenshot](docs/screenshots/card-editor.png).
+
 ## Project structure
 
 | Path | Contents |
 | --- | --- |
 | `client/` | JavaScript UI, Three.js scene, storage, card interactions and Web Audio cues |
 | `server/` | Express, Socket.IO, room sessions, private state, deadlines and authoritative match rules |
-| `shared/` | Protocol constants and nickname validation |
-| `decks/` | Editable JSON arrays of English cards with stable IDs, categories and text |
+| `shared/` | Protocol, card-face renderer and wording similarity checks |
+| `decks/` | Source card database with status and optional editorial metadata |
+| `scripts/` | Local editor, validation and pairing review commands |
 | `public/` | Browser assets and third-party license notices |
 | `test/` | Node rules and transport tests plus Playwright multiplayer and visual tests |
-| `docs/` | [v0.3 verification record](docs/V0.3.md) and screenshots |
+| `docs/` | [v0.3.1 verification record](docs/V0.3.1.md), editorial guides and screenshots |
 
-The app uses JavaScript, Vite, Three.js and Web Audio on the client, with Node.js, Express and Socket.IO on the server. The server maintains hands, deadlines, submissions, votes and scores. Each client receives a private, viewer-specific snapshot. Card text is loaded from the two JSON decks at server startup. Keep each record's ID stable when editing. Card text should be unique, non-empty and at most 120 characters.
+The app uses JavaScript, Vite, Three.js and Web Audio on the client, with Node.js, Express and Socket.IO on the server. The server maintains hands, deadlines, submissions, votes and scores. Each client receives a private, viewer-specific snapshot.
 
 ## Testing
 
@@ -64,7 +89,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The Node suite validates all 1,000 cards and simulates repeated 20-scenario matches at eight seats, including a separate draw-pile exhaustion test. Playwright completes a physical-card match and exercises two complete rematches, five- and eight-client sessions, all three desktop viewports, age confirmation, reconnects and host migration. See the [v0.3 verification record](docs/V0.3.md).
+The Node suite verifies content, editor writes and a full 20-scenario match over eight WebSocket connections. Playwright tests the editor, renders the approved collection and completes matches with independent browser clients. It also checks both rematch paths, five- and eight-client sessions, all three desktop sizes, reconnects and host migration. See the [v0.3.1 verification record](docs/V0.3.1.md).
 
 To run the browser suite against the production bundle, run `npm run build` and then use the command for your shell.
 
