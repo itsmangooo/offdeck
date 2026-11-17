@@ -32,7 +32,8 @@ export class RoomStore {
       players: new Map(),
       hostId: null,
       touched: this.now(),
-      revision: 0
+      revision: 0,
+      cardHistory: { scenarios: [], responses: new Set() }
     }
     const player = this.add(room, name, socketId)
     this.rooms.set(room.id, room)

@@ -54,6 +54,7 @@ test('three independent browser clients finish a production match using only phy
   await a.getByRole('button', { name: 'Start Game' }).click()
 
   const used = new Set()
+  const dealt = new Set()
   let previousHands
   for (let round = 0; round < 3; round++) {
     await Promise.all(pages.map(page => expect(page.locator('[data-phase="select"] .phase-panel')).toBeVisible()))
@@ -74,6 +75,7 @@ test('three independent browser clients finish a production match using only phy
       }
     }
     previousHands = hands
+    for (const card of hands.flat()) dealt.add(card)
     if (capture && round === 0) {
       await snapshot('gameplay')
       const {x,y} = scenarioTarget(sizes[0])
@@ -138,6 +140,12 @@ test('three independent browser clients finish a production match using only phy
   await a.getByRole('button', { name: 'Play Again' }).click()
   await expect(c.page.getByRole('heading', { name: 'Choose a response' })).toBeVisible()
   await expect(c.page.locator('.scores strong')).toHaveText(['0','0','0'])
+  expect(used.has(await c.page.locator('.scenario').textContent())).toBe(false)
+  for (const page of pages) {
+    const hand = await page.locator('.hand button').allTextContents()
+    expect(hand).toHaveLength(5)
+    expect(hand.filter(card => dealt.has(card))).toEqual([])
+  }
   expect(errors).toEqual([])
   await Promise.all([context,b.context,c.context].map(client => client.close()))
 })

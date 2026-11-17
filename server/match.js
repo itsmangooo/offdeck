@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { requireRule } from './rooms.js'
 import { shuffled } from './decks.js'
+import { beginScenarioHistory, newResponsePile, newScenarioPile, rememberResponse } from './rotation.js'
 import { HAND_SIZE } from '../shared/protocol.js'
 export const DEFAULT_MATCH_SCENARIOS = 20
 
@@ -21,8 +22,10 @@ export class Match {
       vote: room.config.voteSeconds * 1000,
       ...DEFAULT_TIMING, ...timing
     }
-    this.scenarios = shuffle(decks.scenarios).slice(-scenarioCount)
-    this.responses = shuffle(decks.responses)
+    const history = room.cardHistory
+    this.scenarios = newScenarioPile(shuffle(decks.scenarios), scenarioCount, history.scenarios)
+    this.responses = newResponsePile(shuffle(decks.responses), history.responses)
+    this.playedScenarios = beginScenarioHistory(history.scenarios)
     this.scenarioDiscard = []
     this.responseDiscard = []
     this.pauseRemaining = null
@@ -59,13 +62,16 @@ export class Match {
           this.responses = this.shuffle(this.responseDiscard.splice(0))
         }
         const card = this.responses.pop()
-        if (card) player.hand.push(card)
+        if (!card) continue
+        player.hand.push(card)
+        rememberResponse(room.cardHistory.responses, card.id)
       }
     }
   }
 
   nextRound(room, now) {
     this.scenario = this.scenarios.pop()
+    this.playedScenarios.add(this.scenario.id)
     this.submissions = new Map()
     this.votes = new Map()
     this.revealed = []
