@@ -18,6 +18,17 @@ test('the scenario collection has questions, fill-ins and open setups', () => {
   assert.ok(scenarios.length - fillIns.length - questions.length >= 65)
 })
 
+test('at least nine in ten responses in each category are two to twelve words', () => {
+  const groups = Map.groupBy(starterDecks.responses, card => card.category)
+  for (const [category,cards] of groups) {
+    const concise = cards.filter(card => {
+      const words = card.text.match(/[\p{L}\p{N}]+(?:['’][\p{L}]+)*/gu).length
+      return words >= 2 && words <= 12
+    })
+    assert.ok(concise.length / cards.length >= .9, category)
+  }
+})
+
 test('invalid library records fail before a room can use them', () => {
   const scenarios = starterDecks.scenarios
   for (const invalid of [

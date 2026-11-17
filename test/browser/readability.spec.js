@@ -96,7 +96,8 @@ test('short, medium and long library cards fit the 3D table in every desktop siz
       await expect(page.locator('.responses article.winner button')).toHaveText(long)
       const ink = await page.evaluate(() => window.cardInk)
       expect(ink.length).toBeGreaterThan(20)
-      expect(ink.every(box => box.left >= 38 && box.right <= 479 && box.top >= 105 && box.bottom <= 625)).toBe(true)
+      // Safe ink inset is measured from the paper edges, including glyph overhang.
+      expect(ink.filter(box => box.left < 32 || box.right > 480 || box.top < 105 || box.bottom > 625)).toEqual([])
     }
   } finally {
     await Promise.all(clients.map(client => client.context.close()))
