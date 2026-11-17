@@ -17,9 +17,18 @@ export async function startServer({
   timing,
   tickMs = 150
 } = {}) {
-  const origin = publicOrigin ? new URL(publicOrigin).origin : null
+  const address = publicOrigin ? new URL(publicOrigin) : null
+  if (address && !['http:', 'https:'].includes(address.protocol)) {
+    throw new Error('PUBLIC_ORIGIN must use http or https')
+  }
+  const origin = address?.origin ?? null
   const app = express()
   app.disable('x-powered-by')
+  app.use((_request, response, next) => {
+    response.set('Referrer-Policy', 'same-origin')
+    response.set('X-Content-Type-Options', 'nosniff')
+    next()
+  })
   const http = createServer(app)
   const io = new Server(http, {
     maxHttpBufferSize: 4096,
@@ -33,9 +42,10 @@ export async function startServer({
   })
   app.get('/healthz', (_request, response) => response.json({ ok: true }))
   app.get('/api/config', (_request, response) => response.json({ publicOrigin: origin }))
+  let vite
   if (dev) {
     const { createServer: createVite } = await import('vite')
-    const vite = await createVite({ server: { middlewareMode: true, hmr: { server: http } }, appType: 'spa' })
+    vite = await createVite({ server: { middlewareMode: true, hmr: { server: http } }, appType: 'spa' })
     app.use(vite.middlewares)
   } else {
     const dist = fileURLToPath(new URL('../dist/', import.meta.url))
@@ -118,8 +128,10 @@ export async function startServer({
         previous.emit('room:closed', 'REPLACED')
       }
       socket.data.membership = { room, player }
+      const seat = { id: room.id, token: player.token }
+      socket.emit('room:seat', seat)
       publish(room)
-      return { id: room.id, token: player.token }
+      return seat
     }
 
     const guests = { member: false, cost: 4 }
@@ -197,7 +209,14 @@ export async function startServer({
     http.listen(port, host, resolve)
   })
   const url = 'http://' + host + ':' + http.address().port
-  return { url, store, close: () => new Promise(resolve => io.close(resolve)) }
+  let closing
+  return {
+    url, store,
+    close() {
+      closing ??= Promise.all([new Promise(resolve => io.close(resolve)), vite?.close()])
+      return closing
+    }
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url).toLowerCase() === process.argv[1].toLowerCase()) {

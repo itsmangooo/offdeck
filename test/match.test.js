@@ -121,6 +121,39 @@ test('scenario exhaustion ends the match and a small response pile recycles with
   assert.equal(match.view(room, players[0]).scenariosPlayed, 3)
 })
 
+test('eight players reach the end only after all 100 production scenarios are discarded', () => {
+  const { room, players } = fixture({ seats: 8 })
+  const match = new Match(room, starterDecks, 0, { select: 15, reveal: 2, vote: 10, results: 5 })
+  const scenarios = new Set()
+  let time = 0
+  while (match.active) {
+    const active = match.view(room,players[0])
+    assert.equal(active.phase,'select')
+    assert.ok(!scenarios.has(active.scenario.id))
+    scenarios.add(active.scenario.id)
+    const hands = players.flatMap(player => {
+      const hand = match.view(room,player).hand
+      assert.equal(hand.length,7)
+      match.submit(room,player,{ roundId: active.roundId, cardId: hand[0].id })
+      return hand.map(card => card.id)
+    })
+    assert.equal(new Set(hands).size,56)
+    match.update(room,time)
+    match.update(room,time += 2)
+    for (const [index,voter] of players.entries()) {
+      const other = players[(index + 1) % players.length]
+      const entry = match.view(room,other).responses.find(card => card.own)
+      match.vote(room,voter,{ roundId: active.roundId, responseId: entry.id })
+    }
+    match.update(room,time)
+    match.update(room,time += 5)
+    if (scenarios.size < 100) assert.equal(match.active,true)
+  }
+  assert.equal(scenarios.size,100)
+  assert.equal(match.outcome,'complete')
+  assert.deepEqual(match.view(room,players[0]).ranked.map(player => player.points), Array(8).fill(100))
+})
+
 test('short response decks are shared and can still progress', () => {
   const { players, match, room, update, submit } = fixture({ responses: 5 })
   assert.deepEqual(players.map(player => match.view(room, player).hand.length), [2, 2, 1])

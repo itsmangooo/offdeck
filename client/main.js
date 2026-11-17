@@ -29,6 +29,7 @@ let receivedAt = 0
 let panel = null
 let opener = null
 let pending = false
+let resumeQueued = false
 let messageTimer
 let invite = readInvite()
 let publicOrigin = location.origin
@@ -38,8 +39,7 @@ document.body.classList.add('loading-scene')
 document.body.classList.toggle('reduced-motion',settings.reduced)
 
 import('./scene/index.js').then(({ TableScene }) => {
-  scene = new TableScene(canvasArea)
-  scene.configure(settings)
+  scene = new TableScene(canvasArea,settings)
   scene.sync(room)
   canvasArea.addEventListener('cardhover', event => {
     if (event.detail && !panel) audio.play('hover')
@@ -125,6 +125,10 @@ async function request(event, payload = {}, complete) {
   } finally {
     pending = false
     render()
+    if (resumeQueued) {
+      resumeQueued = false
+      queueMicrotask(() => enter())
+    }
   }
 }
 
@@ -137,8 +141,16 @@ async function enter(id = invite) {
   const token = savedSeat(id)
   if (token) {
     const resume = await request('room:resume', { id, token }, joined)
-    if (resume?.ok || !resume || resume.code !== 'BAD_SESSION') return
+    if (resume?.ok) {
+      const self = room?.players.find(player => player.id === room.selfId)
+      if (self && self.name !== name) await request('player:name', { name })
+      return
+    }
+    if (!resume || !['BAD_SESSION','ROOM_GONE'].includes(resume.code)) return
     remember(id, null)
+    room = null
+    render()
+    if (resume.code === 'ROOM_GONE') return
   }
   await request('room:join', { id, name }, joined)
 }
@@ -167,8 +179,10 @@ function leave() {
 
 socket.on('connect', () => {
   render()
-  if (invite) enter()
+  if (invite && pending) resumeQueued = true
+  else if (invite) enter()
 })
+socket.on('room:seat', joined)
 socket.on('connect_error', () => { feedback('UNAVAILABLE'); render() })
 socket.on('disconnect', () => render())
 socket.on('room:state', state => {

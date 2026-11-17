@@ -7,7 +7,7 @@ const PLAY_FOV = 50
 const MENU_FOV = 49
 
 export class TableScene {
-  constructor(container) {
+  constructor(container,settings) {
     this.container = container
     this.renderer = new T.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
     this.renderer.outputColorSpace = T.SRGBColorSpace
@@ -72,7 +72,7 @@ export class TableScene {
       }
     })
     this.canvas.addEventListener('pointercancel', () => { this.down = null })
-    this.resize()
+    this.configure(settings)
     this.cards.sync(null)
     this.renderFrame(performance.now())
     this.renderer.setAnimationLoop(this.renderFrame)

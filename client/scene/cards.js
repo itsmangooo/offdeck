@@ -134,6 +134,16 @@ export class Cards {
     this.camera = camera
     this.views = new Map()
     this.back = frontMat(designBack())
+    this.shadowGeometry = new T.PlaneGeometry(.83,.76)
+    const shadowMap = texture(96,96,(ctx,w,h) => {
+      const shade = ctx.createRadialGradient(w/2,h/2,1,w/2,h/2,w/2)
+      shade.addColorStop(0,'#00000094')
+      shade.addColorStop(.45,'#00000046')
+      shade.addColorStop(1,'#00000000')
+      ctx.fillStyle = shade
+      ctx.fillRect(0,0,w,h)
+    })
+    this.shadow = new T.MeshBasicMaterial({ map: shadowMap, transparent: true, depthWrite: false, opacity: .64 })
     this.aspect = camera.aspect
     this.retired = []
     this.clock = performance.now()
@@ -152,18 +162,22 @@ export class Cards {
     rear.rotation.y = Math.PI
     const border = mesh(group, BORDER, focusMat, 0,0,-.015)
     border.visible = false
-    // Picking the physical body keeps both sides selectable during a flip.
-    return { group, front, surface, border, lift: 0 }
+    let shadow = null
+    if (data.center || data.kind === 'scenario') {
+      shadow = mesh(this.scene,this.shadowGeometry,this.shadow)
+      shadow.rotation.x = -Math.PI / 2
+    }
+    return { group, front, surface, border, shadow, lift: 0 }
   }
 
-  handData(cards) {
+  handData(cards, lowered) {
     const spacing = Math.min(.237, .155 * this.aspect)
     return cards.map((card, index) => {
       const delta = index - (cards.length - 1) / 2
       const angle = -delta * .049
       return {
         ...card, key: 'hand:' + card.id, kind: 'response', parent: this.camera, hand: true, index,
-        position: new T.Vector3(delta * spacing, -.566 - delta * delta * .006, -1.82 - Math.abs(delta) * .013 + index * .011),
+        position: new T.Vector3(delta * spacing, -.566 - delta * delta * .006 - (lowered ? .24 : 0), -1.82 - Math.abs(delta) * .013 + index * .011),
         rotation: new T.Quaternion().setFromEuler(new T.Euler(-.115, delta * -.035, angle)),
         scale: .40
       }
@@ -209,11 +223,13 @@ export class Cards {
       data.push({ key: 'pack:' + index, kind: 'back', parent: this.scene, scale: .60, index, ...pack })
     }
     const showResponses = match.phase !== 'select' && match.responses.length > 0
-    const scenarioPose = onTable(showResponses ? -1.36 : 0, showResponses ? -.70 : -.64, yaw,.85)
-    scenarioPose.position.y += .22
+    const crowded = match.responses.length > 4
+    const scenarioOffset = crowded ? -1.68 : -1.36
+    const scenarioPose = onTable(showResponses ? scenarioOffset : 0, -.64, yaw,.85)
+    scenarioPose.position.y += .251
     data.push({
       ...match.scenario, key: 'scenario:' + match.roundId, kind: 'scenario', parent: this.scene,
-      scale: showResponses ? .76 : .92, ...scenarioPose
+      scale: crowded ? .65 : showResponses ? .76 : .92, ...scenarioPose
     })
     if (match.phase === 'select') {
       for (let index = 0; index < match.submittedCount; index++) {
@@ -230,12 +246,12 @@ export class Cards {
         const frontRow = index >= 4
         const depth = twoRows ? (frontRow ? .92 : -.12) : .23
         const pose = onTable((col - (itemsInRow - 1)/2) * .60, depth, yaw,.76)
-        pose.position.y += twoRows ? (frontRow ? .11 : .50) : .21
+        pose.position.y += twoRows ? (frontRow ? .178 : .50) : .21
         data.push({ ...response, key: 'response:' + response.id, kind: 'response', parent: this.scene,
           center: true, scale: twoRows ? .72 : .82, index, ...pose })
       }
     }
-    data.push(...this.handData(match.hand))
+    data.push(...this.handData(match.hand, match.phase !== 'select'))
     return data
   }
 
@@ -289,6 +305,7 @@ export class Cards {
 
   dispose(view) {
     view.group.removeFromParent()
+    view.shadow?.removeFromParent()
     if (view.front === this.back) return
     view.front.map.dispose()
     view.front.dispose()
@@ -383,6 +400,11 @@ export class Cards {
     group.scale.setScalar(base.scale * (1 + view.lift * .13 + pulse * .07))
     view.border.visible = Boolean(winner || view.lift > .12 || pulse)
     view.border.material = winner ? winnerMat : focusMat
+    if (view.shadow) {
+      const { x, y, z } = group.position
+      view.shadow.position.set(x,TABLE_Y + .008,z)
+      view.shadow.scale.setScalar(base.scale * (1 + Math.max(0, y - TABLE_Y) * .26))
+    }
     return Boolean(view.motion)
   }
 

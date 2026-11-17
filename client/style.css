@@ -53,7 +53,7 @@ li > span { overflow-wrap: anywhere }
 .menu-rooms,.menu-links { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
 .menu-links { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 6px }
 .menu-links button { border: 0; background: transparent; justify-content: flex-start; color: #435249; font-size: 14px }
-.lobby { width: min(100%,485px); align-self: center }
+.lobby { width: min(100%,485px); align-self: center; margin-top: 28px }
 .lobby header { flex-wrap: wrap }
 .capacity { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: .84rem }
 .lobby ul { border-bottom: 1px solid var(--line); max-height: min(38vh, 350px); overflow: auto }
