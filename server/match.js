@@ -192,7 +192,7 @@ export class Match {
       voted: this.votes.has(viewer.id),
       spectator: !this.roster.has(viewer.id),
       seats: this.active ? [...this.roster].map(([id, player]) => ({
-        id, handCount: player.hand.length, submitted: this.submissions.has(id)
+        id, handCount: player.hand.length, submitted: this.submissions.has(id), voted: this.votes.has(id)
       })) : [],
       submittedCount: this.submissions.size,
       responses: hidden || phase === 'finished' ? [] : this.revealed.map(entry => ({
@@ -201,6 +201,7 @@ export class Match {
         own: entry.authorId === viewer.id,
         ...(results && {
           author: this.roster.get(entry.authorId).name,
+          authorId: entry.authorId,
           points: entry.points,
           winner: top > 0 && entry.points === top
         })

@@ -57,7 +57,7 @@ test('deal and submissions remain private, reveal IDs are anonymous, votes lock,
   const aView = match.view(room, a)
   assert.equal(aView.responses.length, 3)
   assert.equal(aView.responses.filter(card => card.own).length, 1)
-  assert.ok(aView.responses.every(card => !('author' in card) && !('points' in card) && card.id !== privateCard.id))
+  assert.ok(aView.responses.every(card => !('author' in card) && !('authorId' in card) && !('points' in card) && card.id !== privateCard.id))
   assert.equal(aView.canVote, false)
   update(2)
   assert.throws(() => cast(a, match.view(room, a).responses.find(card => card.own)), /OWN_CARD/)
@@ -67,6 +67,7 @@ test('deal and submissions remain private, reveal IDs are anonymous, votes lock,
     assert.throws(() => cast(voter), /ALREADY_VOTED/)
   }
   assert.equal(match.view(room, b).responses.some(card => 'points' in card), false)
+  assert.ok(match.view(room,b).seats.every(seat => seat.voted && !('responseId' in seat)))
   update()
   assert.equal(match.phase, 'results')
   assert.ok(match.view(room, b).responses.every(card => card.winner && card.points === 1 && card.author))

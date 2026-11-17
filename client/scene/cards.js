@@ -2,6 +2,7 @@ import * as T from 'three'
 import { mesh, roundedRectangle, texture, TABLE_Y, SEATS } from './environment.js'
 import { CARD_WIDTH as WIDTH, CARD_HEIGHT as HEIGHT, tableCard as onTable, handPose,
   scenarioPose, responsePose, wrapCardText } from './card-layout.js'
+import { remoteHandPose } from './avatar-layout.js'
 const outline = roundedRectangle(WIDTH, HEIGHT, .032)
 const pad = new T.ExtrudeGeometry(outline, {
   depth: .016, bevelEnabled: true, bevelSize: .004, bevelThickness: .003, bevelSegments: 1, curveSegments: 6
@@ -225,17 +226,12 @@ export class Cards {
     const stacks = playing ? match.seats : room?.players.map(player => ({ id: player.id, handCount: 0 })) ?? []
     for (const member of stacks) {
       const player = room.players.find(player => player.id === member.id)
-      if (!player || player.id === room.selfId || !player.connected) continue
-      const seat = SEATS[player.seat]
+      if (!player || player.id === room.selfId) continue
       for (let index = 0; index < member.handCount; index++) {
-        const offset = (index - (member.handCount - 1) / 2) * .089
-        const length = Math.hypot(seat.x,seat.z)
         data.push({
-          key: 'remote:' + player.id + ':' + index, kind: 'back', parent: this.scene, scale: .39,
-          memberId: player.id, remote: true, index,
-          position: new T.Vector3(seat.x * (1 - .83 / length) + offset * Math.cos(seat.yaw),
-            TABLE_Y + .028 + index * .002, seat.z * (1 - .83 / length) - offset * Math.sin(seat.yaw)),
-          rotation: onTable(0, 0, seat.yaw + (index - 3) * .06).rotation
+          key:'remote:' + player.id + ':' + index, kind:'back', parent:this.scene,
+          memberId:player.id, remote:true, index, seatIndex:player.seat,
+          ...remoteHandPose(SEATS[player.seat],member.handCount,index,player.connected)
         })
       }
     }
@@ -409,6 +405,9 @@ export class Cards {
     }
     group.position.copy(base.position)
     group.position.y += arc
+    if (view.data.remote && !this.still && !retired && !motion) {
+      group.position.y += Math.sin(time*.00155 + view.data.seatIndex*1.9)*.013
+    }
     group.quaternion.copy(base.rotation)
     const selected = !retired && view === this.hovered
     const ease = this.still ? 1 : 1 - Math.exp(-dt * 16)

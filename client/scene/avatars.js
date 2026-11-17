@@ -1,5 +1,6 @@
 import * as T from 'three'
 import { mesh, texture, SEATS, batchStatic } from './environment.js'
+import { HEAD_HEIGHT } from './avatar-layout.js'
 
 const sphere = new T.SphereGeometry(1, 24, 18)
 const iris = new T.MeshStandardMaterial({ color: '#171a21', roughness: .48 })
@@ -15,7 +16,9 @@ function sculpt(parent, material, x,y,z, width,height,depth) {
 
 function makeHead(seat) {
   const head = new T.Group()
-  const skin = new T.MeshStandardMaterial({ color: skinColors[seat], roughness: .83 })
+  const skin = new T.MeshStandardMaterial({
+    color:skinColors[seat], roughness:.77, emissive:skinColors[seat], emissiveIntensity:.065
+  })
   const hair = new T.MeshStandardMaterial({ color: hairColors[seat], roughness: .74 })
   sculpt(head, skin, 0,0,0, .271,.319,.238)
   sculpt(head, skin, 0,-.116,.055, .230,.191,.195)
@@ -57,30 +60,40 @@ function makeHead(seat) {
   return head
 }
 
-function badge(player, host) {
-  const map = texture(512, 144, (ctx,w,h) => {
+const STATE_COLORS = {
+  seated:'#a9b99f', choosing:'#e1c987', submitted:'#a4cc98',
+  voted:'#a8ccce', offline:'#d38e65', winner:'#edc777'
+}
+
+function badge(player, host, status) {
+  const width = Math.min(512,Math.max(200,104 + [...player.name].length * 27 + (host ? 37 : 0)))
+  const map = texture(width,96,(ctx,w,h) => {
     ctx.beginPath()
-    ctx.roundRect(4, 16, w - 8, h - 32, 14)
-    ctx.fillStyle = '#15251ff2'
+    ctx.roundRect(3,9,w-6,h-18,17)
+    ctx.fillStyle = '#17221df3'
     ctx.fill()
-    ctx.strokeStyle = '#d7bc877d'
-    ctx.lineWidth = 3
+    ctx.strokeStyle = status === 'winner' ? '#edc777' : '#b5c2a66b'
+    ctx.lineWidth = status === 'winner' ? 4 : 2
     ctx.stroke()
-    ctx.fillStyle = player.connected ? (player.ready ? '#d0dca1' : '#a9b99f') : '#e1aa65'
+    ctx.fillStyle = STATE_COLORS[status]
     ctx.beginPath()
-    ctx.arc(39, h / 2, 8, 0, Math.PI * 2)
+    ctx.arc(30,h/2,9,0,Math.PI*2)
     ctx.fill()
-    ctx.fillStyle = '#f6f1e2'
-    ctx.font = '650 49px system-ui'
+    ctx.font = '650 54px system-ui'
     ctx.textBaseline = 'middle'
-    ctx.fillText(player.name, 64, h / 2 + 2, host ? 365 : 405)
+    ctx.fillStyle = player.connected ? '#fbf6e8' : '#c5c6b7'
+    ctx.fillText(player.name,54,h/2+2,w-(host ? 100 : 71))
     if (host) {
       ctx.fillStyle = '#ecd4a6'
-      ctx.font = '700 35px system-ui'
-      ctx.fillText('♦', 443, h / 2 + 2)
+      ctx.font = '700 36px system-ui'
+      ctx.fillText('♦',w-38,h/2+1)
     }
   })
-  return new T.SpriteMaterial({ map, transparent: true, depthWrite: false, toneMapped: false })
+  return new T.SpriteMaterial({map,transparent:true,depthWrite:false,toneMapped:false})
+}
+
+function sizeBadge(label) {
+  label.scale.set(label.material.map.image.width * .00175,.168,1)
 }
 
 export class Avatars {
@@ -91,7 +104,9 @@ export class Avatars {
   }
 
   sync(room) {
-    const activeSeats = room?.match?.phase !== 'finished' ? room?.match?.seats : undefined
+    const match = room?.match
+    const activeSeats = match?.phase !== 'finished' ? match?.seats : undefined
+    const winners = new Set(match?.responses.filter(card => card.winner).map(card => card.authorId) ?? [])
     const others = room?.players.filter(player => player.id !== room.selfId &&
       (!activeSeats || activeSeats.some(seat => seat.id === player.id))) ?? []
     for (const [id, view] of this.visible) {
@@ -101,22 +116,32 @@ export class Avatars {
     for (const player of others) {
       const { x, z, yaw } = SEATS[player.seat]
       const host = player.id === room.hostId
-      const key = JSON.stringify([player.name,player.connected,player.ready,host])
+      const member = activeSeats?.find(seat => seat.id === player.id)
+      const status = !player.connected ? 'offline' : winners.has(player.id) ? 'winner' :
+        member?.voted ? 'voted' : member?.submitted || player.ready ? 'submitted' :
+        match?.phase === 'select' && member ? 'choosing' : 'seated'
+      const key = JSON.stringify([player.name,host,status])
       let view = this.visible.get(player.id)
       if (!view) {
         const head = this.models[player.seat]
-        head.position.set(x * .98, 1.92, z * .98)
-        head.rotation.y = yaw + Math.PI
-        const label = new T.Sprite(badge(player,host))
-        label.position.set(x * .98, 2.38,z * .98)
-        label.scale.set(.99,.278,1)
+        head.position.set(x*.99,HEAD_HEIGHT,z*.99)
+        head.rotation.y = yaw+Math.PI
+        const label = new T.Sprite(badge(player,host,status))
+        label.position.set(x*.99,HEAD_HEIGHT+.46,z*.99)
+        sizeBadge(label)
         this.scene.add(head,label)
-        view = { head, label, key, yaw, seat: player.seat }
+        view = {head,label,key,yaw,seat:player.seat,status,reactAt:0,reaction:null}
         this.visible.set(player.id,view)
       } else if (view.key !== key) {
         view.label.material.map.dispose()
         view.label.material.dispose()
-        view.label.material = badge(player,host)
+        view.label.material = badge(player,host,status)
+        sizeBadge(view.label)
+        if (status !== view.status) {
+          view.reaction = view.status === 'offline' ? 'reconnected' : status
+          view.reactAt = performance.now()
+        }
+        view.status = status
         view.key = key
       }
     }
@@ -131,10 +156,19 @@ export class Avatars {
 
   animate(seconds, still) {
     for (const view of this.visible.values()) {
-      const wave = seconds + view.seat * 3.12
-      view.head.position.y = 1.92 + (still ? 0 : Math.sin(wave * 1.2) * .044)
-      view.head.rotation.y = Math.PI + view.yaw + (still ? 0 : Math.sin(wave * .64) * .09)
-      view.head.rotation.z = still ? 0 : Math.sin(wave * 1.29) * .055
+      const {head,label,status,reaction,reactAt} = view
+      const wave = seconds*1.55 + view.seat*1.9
+      const t = still ? 1 : T.MathUtils.clamp((seconds*1000-reactAt)/650,0,1)
+      const accent = Math.sin(t*Math.PI) * (1-t*.3)
+      const bounce = reaction === 'winner' || reaction === 'reconnected' ? accent*.074 : 0
+      const nod = reaction === 'submitted' || reaction === 'voted' ? accent*.16 : 0
+      const down = status === 'offline' ? .083 : 0
+      const y = HEAD_HEIGHT-down + (still ? 0 : Math.sin(wave)*.023+bounce)
+      head.position.y = y
+      label.position.y = y+.453
+      head.rotation.x = nod + (status === 'choosing' ? .075 : down)
+      head.rotation.y = Math.PI+view.yaw + (still ? 0 : Math.sin(wave*.62)*.055)
+      head.rotation.z = still ? 0 : Math.sin(wave*.86)*.033
     }
   }
 }
