@@ -28,6 +28,12 @@ try {
   await page.getByLabel('Nickname').fill('Maya')
   await page.getByRole('button', { name: 'Continue' }).click()
   await page.locator('body.has-scene').waitFor({ state: 'attached' })
+  const quality = process.argv.find(arg => arg.startsWith('--quality='))?.split('=')[1]
+  if (quality) {
+    await page.getByRole('button',{name:'Settings'}).click()
+    await page.getByLabel('Graphics quality').selectOption(quality)
+    await page.getByRole('button',{name:'Save Settings'}).click()
+  }
   await page.getByRole('button', { name: 'Create Room' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Create Room' }).click()
   const id = new URL(await page.getByLabel('Invitation link').inputValue()).pathname.split('/')[2]
@@ -64,7 +70,8 @@ try {
       driver, frames: intervals.length, fps: +(1000 * intervals.length / span).toFixed(1),
       p95Ms: +intervals[Math.ceil(intervals.length * .95) - 1].toFixed(2),
       drawCallsPerFrame: Math.round((window.renderCounts.draws - before) / (intervals.length + 1)),
-      liveTextures: window.renderCounts.textures
+      liveTextures: window.renderCounts.textures,
+      buffer: [gl.drawingBufferWidth,gl.drawingBufferHeight]
     }
   })
   console.log(JSON.stringify(result))

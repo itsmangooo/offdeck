@@ -1,5 +1,6 @@
 import * as T from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { weave,roomReflections } from './surfaces.js'
 
 export const TABLE_Y = 1.17
 export const SEATS = [
@@ -23,7 +24,7 @@ export function batchStatic(root) {
   const inverse = root.matrixWorld.clone().invert()
   const batches = new Map()
   root.traverse(object => {
-    if (!object.isMesh || Array.isArray(object.material) || object.material.transparent) return
+    if (!object.isMesh || object.isInstancedMesh || Array.isArray(object.material) || object.material.transparent) return
     const key = [object.material.uuid, object.castShadow, object.receiveShadow].join(':')
     if (!batches.has(key)) batches.set(key, [])
     batches.get(key).push(object)
@@ -108,22 +109,20 @@ function rim(parent, material, straight, radius, y, depth, bevel = .012, inner =
   return object
 }
 
-function noisySurface(rgb, variation, grain = false) {
-  const map = texture(256, 256, (ctx, w, h) => {
-    const image = ctx.createImageData(w, h)
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const index = (x + y * w) * 4
-        const wave = grain ? Math.sin(y * .41 + Math.sin(x * .035) * 2.4) * 8 : 0
-        const tone = (Math.random() - .5) * variation + wave
-        for (let channel = 0; channel < 3; channel++) image.data[index + channel] = rgb[channel] + tone
-        image.data[index + 3] = 255
-      }
-    }
-    ctx.putImageData(image, 0, 0)
-  })
-  map.wrapS = map.wrapT = T.RepeatWrapping
-  return map
+function railStitch(table,material) {
+  const points = oval(1.48,1.565).getSpacedPoints(196)
+  const seams = new T.InstancedMesh(new T.BoxGeometry(.034,.003,.009),material,points.length-1)
+  const transform = new T.Object3D()
+  for (let index=0;index<points.length-1;index++) {
+    const point = points[index]
+    const next = points[index+1]
+    transform.position.set(point.x,1.228,-point.y)
+    transform.rotation.y = Math.atan2(next.y-point.y,next.x-point.x)
+    transform.updateMatrix()
+    seams.setMatrixAt(index,transform.matrix)
+  }
+  seams.receiveShadow = true
+  table.add(seams)
 }
 
 function table(scene, mats) {
@@ -134,6 +133,8 @@ function table(scene, mats) {
   rim(table, walnut, 1.54, 1.72, .99, .13, .048).castShadow = true
   rim(table, brass, 1.54, 1.745, 1.101, .016, .005, 1.70)
   rim(table, leather, 1.48, 1.705, 1.127, .051, .049, 1.48).castShadow = true
+  rim(table, mats.piping, 1.48, 1.699, 1.173, .010, .008, 1.687)
+  railStitch(table,mats.thread)
   rim(table, baize, 1.48, 1.52, 1.148, .019, .004)
   rim(table, seam, 1.43, 1.37, TABLE_Y, .002, 0, 1.36)
   rim(table, seam, 1.41, 1.32, TABLE_Y, .002, 0, 1.315)
@@ -156,8 +157,9 @@ function table(scene, mats) {
   const pedestal = new T.CylinderGeometry(.46, .59, .80, 32)
   const foot = new T.CylinderGeometry(.65, .73, .12, 32)
   const rib = new T.CylinderGeometry(.033, .048, .73, 10)
-  const holder = new T.TorusGeometry(.102, .013, 8, 24)
+  const holder = new T.TorusGeometry(.102, .011, 8, 24)
   const liner = new T.CircleGeometry(.093, 24)
+  const fastener = new T.CircleGeometry(.029,4)
   for (const x of [-1.26, 1.26]) {
     mesh(table, foot, dark, x, .075).castShadow = true
     mesh(table, pedestal, walnut, x, .53).castShadow = true
@@ -176,7 +178,7 @@ function table(scene, mats) {
     const hz = z * scale
     mesh(table, holder, brass, hx, 1.239, hz).rotation.x = -Math.PI / 2
     mesh(table, liner, dark, hx, 1.235, hz).rotation.x = -Math.PI / 2
-    const marker = mesh(table, new T.CircleGeometry(.029, 4), brass, hx, TABLE_Y + .005, hz - Math.cos(yaw) * .25)
+    const marker = mesh(table, fastener, brass, hx, TABLE_Y + .005, hz - Math.cos(yaw) * .25)
     marker.rotation.set(-Math.PI / 2, 0, yaw)
   }
 }
@@ -216,7 +218,7 @@ function floor(scene, mats) {
   const floorMap = texture(512, 512, (ctx, w, h) => {
     ctx.fillStyle = '#231c18'
     ctx.fillRect(0, 0, w, h)
-    const shades = ['#302620', '#332821', '#362a22', '#392d25', '#2d241e']
+    const shades = ['#342921','#3b3026','#3c2e24','#433426','#332821']
     for (let row = 0; row < 8; row++) {
       for (let col = -1; col < 3; col++) {
         const x = col * 256 + (row % 2) * 128
@@ -224,8 +226,9 @@ function floor(scene, mats) {
         ctx.fillStyle = shades[(row * 3 + col + 6) % shades.length]
         ctx.fillRect(x + 1, y + 1, 254, 62)
         for (let i = 0; i < 13; i++) {
-          ctx.fillStyle = i % 2 ? '#8f6b4b18' : '#09080630'
-          ctx.fillRect(x + (i * 31 % 85), y + 3 + i * 4, 159 - i, .8)
+          ctx.fillStyle = i%2 ? '#bea18316' : '#100c0938'
+          ctx.fillRect(x+(i*31%85),y+3+i*4,150-i,.55)
+          ctx.fillRect(x+8+(i*43%157),y+4+i*4.1,45+i,.65)
         }
       }
     }
@@ -235,10 +238,23 @@ function floor(scene, mats) {
   const ground = mesh(scene, new T.PlaneGeometry(28, 28), color('#ffffff', { map: floorMap, roughness: .77 }))
   ground.rotation.x = -Math.PI / 2
   ground.receiveShadow = true
-  const rug = noisySurface([33, 47, 39], 12)
+  const rug = weave(texture,[27,42,39],7,'felt')
   rim(scene, color('#fff', { map: rug, roughness: 1 }), 1.75, 2.97, .007, .014, .003)
   rim(scene, mats.seam, 1.70, 2.78, .023, .001, 0, 2.76)
   rim(scene, mats.seam, 1.70, 2.69, .023, .001, 0, 2.683)
+  const contact = texture(128,96,(ctx,w,h) => {
+    ctx.translate(w/2,h/2)
+    ctx.scale(1,h/w)
+    const shade = ctx.createRadialGradient(0,0,6,0,0,w/2)
+    shade.addColorStop(0,'#070908b8')
+    shade.addColorStop(.55,'#07090860')
+    shade.addColorStop(1,'#07090800')
+    ctx.fillStyle = shade
+    ctx.fillRect(-w/2,-w/2,w,w)
+  })
+  mesh(scene,new T.PlaneGeometry(9.1,5.6),new T.MeshBasicMaterial({
+    map:contact,transparent:true,depthWrite:false
+  }),0,.026).rotation.x=-Math.PI/2
 }
 
 function framedArt(scene, mats) {
@@ -276,9 +292,10 @@ function framedArt(scene, mats) {
 }
 
 function walls(scene, mats) {
-  const wall = color('#25342c', { roughness: .86 })
-  const inset = color('#192820', { roughness: .92 })
-  const trim = color('#443329', { roughness: .67 })
+  const wall = color('#fff',{map:weave(texture,[35,49,42],8,'plaster'),roughness:.92})
+  const inset = color('#26362f',{roughness:.88})
+  const trim = color('#463830',{roughness:.57})
+  const dado = color('#232b25',{roughness:.78})
   const wallGroup = new T.Group()
   const sconce = new T.MeshStandardMaterial({ color: '#fae0ba', emissive: '#ffb761', emissiveIntensity: 1.9 })
   const glowMap = texture(128,128,(ctx,w,h) => {
@@ -300,6 +317,7 @@ function walls(scene, mats) {
     wallSide.rotation.y = yaw
     wallGroup.add(wallSide)
     block(wallSide, wall, width, 5.6, .24, 0, 2.8, 0)
+    block(wallSide,dado,width,1.06,.14,0,.58,.118)
     block(wallSide, trim, width, .19, .30, 0, .11, .05)
     block(wallSide, trim, width, .10, .22, 0, 1.18, .10)
     block(wallSide, trim, width, .17, .24, 0, 4.53, .10)
@@ -307,22 +325,29 @@ function walls(scene, mats) {
       block(wallSide, inset, 2.4, 2.85, .047, position, 2.83, .137)
       block(wallSide, trim, .032, 2.85, .066, position - 1.2, 2.83, .135)
       block(wallSide, trim, 2.4, .031, .069, position, 1.407, .136)
+      block(wallSide,trim,2.4,.031,.069,position,4.25,.136)
+      block(wallSide,trim,.032,2.85,.066,position+1.2,2.83,.135)
+      block(wallSide,trim,2.4,.023,.061,position,.23,.207)
+      block(wallSide,trim,.027,.83,.061,position-1.2,.66,.207)
     }
     for (const x of [-width / 4, width / 4]) {
-      block(wallSide, mats.brass, .19, .53, .10, x, 2.85, .18)
-      globe(wallSide, sconce, .17, x, 3.01, .38)
-      mesh(wallSide,glowPlane,glow,x,3.01,.173)
+      block(wallSide,mats.brass,.16,.48,.10,x,2.93,.21)
+      const globeLight = globe(wallSide,sconce,.155,x,3.03,.36)
+      globeLight.scale.y = .214
+      block(wallSide,mats.brass,.27,.031,.28,x,2.84,.36)
+      block(wallSide,mats.brass,.19,.031,.19,x,3.21,.36)
+      mesh(wallSide,glowPlane,glow,x,3.01,.174)
     }
   }
   framedArt(scene,mats)
 }
 
 function lighting(scene, mats) {
-  scene.add(new T.HemisphereLight('#e5eedc', '#887164', 1.37))
-  const fill = new T.DirectionalLight('#c7dfdc', 1.35)
+  scene.add(new T.HemisphereLight('#d2e3d8','#8b6e60',1.32))
+  const fill = new T.DirectionalLight('#c1d6de',1.52)
   fill.position.set(1, 5, -5)
   scene.add(fill)
-  const key = new T.SpotLight('#ffdfb1', 96, 21, .94, .55, 2)
+  const key = new T.SpotLight('#ffdab1',105,21,.86,.68,2)
   key.position.set(.1, 6.1, 1.65)
   key.target.position.set(0, .4, 0)
   key.castShadow = true
@@ -341,7 +366,8 @@ function lighting(scene, mats) {
   for (const x of [-1.65, 0, 1.65]) {
     const pendant = mesh(scene, new T.CylinderGeometry(.15, .40, .28, 32, 1, true), mats.dark, x, 4.65, 0)
     pendant.material.side = T.DoubleSide
-    mesh(scene, new T.CylinderGeometry(.401, .405, .04, 32), mats.brass, x, 4.52, 0)
+    mesh(scene,new T.CylinderGeometry(.401,.405,.04,32),mats.brass,x,4.52,0)
+    mesh(scene,new T.CylinderGeometry(.166,.184,.042,24),mats.brass,x,4.805,0)
     mesh(scene, new T.CylinderGeometry(.34, .34, .025, 32), diffuser, x, 4.495, 0)
     mesh(scene, new T.CylinderGeometry(.016,.016,.8,12), mats.dark, x, 5.17, 0)
   }
@@ -349,16 +375,23 @@ function lighting(scene, mats) {
 }
 
 export function buildRoom(scene) {
+  const felt = weave(texture,[25,66,53],8,'felt')
+  const leather = weave(texture,[46,45,37],8,'leather')
+  const walnut = weave(texture,[102,62,44],8,'wood')
   const mats = {
-    walnut: color('#ffffff', { map: noisySurface([103, 60, 37], 13, true), roughness: .55 }),
-    brass: color('#c29a63', { metalness: .48, roughness: .37 }),
-    leather: color('#ffffff', { map: noisySurface([37, 45, 40], 14), roughness: .86 }),
-    baize: color('#ffffff', { map: noisySurface([27, 80, 59], 23), roughness: 1 }),
-    seam: color('#5c7f5b', { roughness: 1 }),
-    dark: color('#131c19', { roughness: .73 })
+    walnut:color('#fff',{map:walnut,roughness:.36,metalness:.065}),
+    brass:color('#c9a371',{metalness:.60,roughness:.31}),
+    leather:color('#fff',{map:leather,bumpMap:leather,bumpScale:.006,roughness:.73}),
+    piping:color('#665a45',{roughness:.65}),
+    thread:color('#9d8969',{roughness:.89}),
+    baize:color('#fff',{map:felt,bumpMap:felt,bumpScale:.005,roughness:.95}),
+    seam:color('#677750',{roughness:1}),
+    dark:color('#1a2420',{roughness:.61})
   }
-  scene.background = new T.Color('#17231c')
-  scene.fog = new T.FogExp2('#17231c', .052)
+  scene.background = new T.Color('#192921')
+  scene.fog = new T.FogExp2('#192921',.046)
+  scene.environment = roomReflections(texture)
+  scene.environmentIntensity = .31
   const key = lighting(scene, mats)
   floor(scene, mats)
   walls(scene, mats)
