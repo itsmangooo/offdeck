@@ -1,7 +1,7 @@
 import * as T from 'three'
 import { mesh, roundedRectangle, texture, TABLE_Y, SEATS } from './environment.js'
 import { CARD_WIDTH as WIDTH, CARD_HEIGHT as HEIGHT, tableCard as onTable, handPose,
-  scenarioPose, responsePose, wrapCardText } from './card-layout.js'
+  scenarioPose, responsePose, fitCardText } from './card-layout.js'
 import { remoteHandPose } from './avatar-layout.js'
 const outline = roundedRectangle(WIDTH, HEIGHT, .032)
 const pad = new T.ExtrudeGeometry(outline, {
@@ -76,21 +76,11 @@ function designFace({ text:content,kind:type,own,author,points,winner,recorded }
     ctx.fillText(scenario ? 'SCENARIO' : 'RESPONSE', 39, 76)
     ctx.letterSpacing = '0px'
     ctx.fillStyle = scenario ? '#fff6e4' : '#17251e'
-    let font = content.length < 40 ? 63 : 57
-    const textWidth = w - 86
-    const bottom = author === undefined ? 631 : 579
     const top = 111
-    const words = content.split(/\s+/)
-    let lines
-    do {
-      ctx.font = (scenario ? '690 ' : '610 ') + font + 'px system-ui'
-      lines = wrapCardText(ctx,content,textWidth)
-      const wordsFit = words.every(word => ctx.measureText(word).width <= textWidth)
-      if ((wordsFit && lines.length * font * 1.18 <= bottom-top) || font === 34) break
-      font--
-    } while (font >= 34)
+    const bottom = author === undefined ? 625 : 591
     ctx.textBaseline = 'top'
-    for (let index = 0; index < lines.length; index++) ctx.fillText(lines[index], 43, top + index * font * 1.18)
+    const { lines,lineHeight } = fitCardText(ctx, content, w - 86, bottom - top, scenario)
+    for (const [index,line] of lines.entries()) ctx.fillText(line, 43, top + index * lineHeight)
     ctx.textBaseline = 'alphabetic'
     ctx.fillStyle = scenario ? '#a9be9a' : '#3e624b'
     ctx.font = '800 19px system-ui'
