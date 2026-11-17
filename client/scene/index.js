@@ -89,7 +89,7 @@ export class TableScene {
     this.quality = settings.quality
     const resolution = settings.quality === 'High' ? 2048 : 1024
     this.renderer.shadowMap.enabled = settings.quality !== 'Low'
-    if (this.key.shadow.mapSize.x !== resolution) {
+    if (!this.renderer.shadowMap.enabled || this.key.shadow.mapSize.x !== resolution) {
       this.key.shadow.map?.dispose()
       this.key.shadow.map = null
       this.key.shadow.mapSize.set(resolution,resolution)

@@ -13,14 +13,30 @@ try {
   } : { args: ['--enable-unsafe-swiftshader'] })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   await page.addInitScript(() => {
-    window.renderCounts = { draws: 0, textures: 0 }
-    const calls = { drawElements: 'draws', drawArrays: 'draws', drawElementsInstanced: 'draws', drawArraysInstanced: 'draws',
-      createTexture: 'textures', deleteTexture: 'textures' }
+    const allocations = new Map()
+    window.renderCounts = { draws:0,textures:0,allocations }
+    const prototype = WebGL2RenderingContext.prototype
+    const storage = prototype.texStorage2D
+    prototype.texStorage2D = function (target,levels,format,width,height) {
+      const cube = target === this.TEXTURE_CUBE_MAP
+      const bound = this.getParameter(cube ? this.TEXTURE_BINDING_CUBE_MAP : this.TEXTURE_BINDING_2D)
+      const perPixel = new Map([[this.R8,1],[this.RG8,2],[this.RGB8,3],[this.RGBA16F,8],[this.RGBA32F,16]])
+      const bytes = perPixel.get(format) ?? 4
+      let pixels = 0
+      for (let level=0;level<levels;level++) {
+        pixels += Math.max(1,width>>level)*Math.max(1,height>>level)
+      }
+      if (bound) allocations.set(bound,pixels*bytes*(cube ? 6 : 1))
+      return storage.call(this,target,levels,format,width,height)
+    }
+    const calls = { drawElements:'draws', drawArrays:'draws', drawElementsInstanced:'draws', drawArraysInstanced:'draws',
+      createTexture:'textures', deleteTexture:'textures' }
     for (const [method, type] of Object.entries(calls)) {
       const original = WebGL2RenderingContext.prototype[method]
       WebGL2RenderingContext.prototype[method] = function (...args) {
+        if (method === 'deleteTexture') allocations.delete(args[0])
         window.renderCounts[type] += method === 'deleteTexture' ? -1 : 1
-        return original.apply(this, args)
+        return original.apply(this,args)
       }
     }
   })
@@ -37,7 +53,10 @@ try {
   await page.getByRole('button', { name: 'Create Room' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Create Room' }).click()
   const id = new URL(await page.getByLabel('Invitation link').inputValue()).pathname.split('/')[2]
-  for (const name of ['Jules', 'Sam']) {
+  const count = Number(process.argv.find(arg => arg.startsWith('--players='))?.split('=')[1] ?? 3)
+  if (!Number.isInteger(count) || count < 3 || count > 8) throw Error('Expected 3–8 players')
+  for (let index=1;index<count;index++) {
+    const name = 'Guest '+index
     const socket = io(server.url, { transports: ['websocket'], reconnection: false })
     guests.push(socket)
     await once(socket, 'connect')
@@ -71,6 +90,7 @@ try {
       p95Ms: +intervals[Math.ceil(intervals.length * .95) - 1].toFixed(2),
       drawCallsPerFrame: Math.round((window.renderCounts.draws - before) / (intervals.length + 1)),
       liveTextures: window.renderCounts.textures,
+      trackedTextureMiB: +([...window.renderCounts.allocations.values()].reduce((total,bytes)=>total+bytes,0)/1048576).toFixed(2),
       buffer: [gl.drawingBufferWidth,gl.drawingBufferHeight]
     }
   })

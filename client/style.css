@@ -166,6 +166,10 @@ li > span { overflow-wrap: anywhere }
 .has-scene .card-list-content button { font-size: .81rem }
 .table-controls > summary { cursor: pointer; padding-block: 6px; font-weight: 650; font-size: .83rem }
 .has-scene:has(.match) .connection { top: auto; bottom: 63px }
+@media (max-height: 800px) {
+  .has-scene .score-panel { width: min(162px,16vw) }
+  .has-scene .score-panel li { padding-block: 2px; font-size: .77rem }
+}
 @media(max-width: 850px) {
   #app { padding: 16px }
   .has-scene .phase-panel { width: min(300px,46vw) }

@@ -33,7 +33,7 @@ export function handPose(seat, phase, aspect, count, index) {
     (2 * halfHeight * aspect * .81) / (7.36 * CARD_WIDTH))
   const offset = index - (count - 1) / 2
   const fan = offset * offset * (lowered ? .0011 : .0018)
-  const base = lowered ? .908 : .830
+  const base = lowered ? .917 : .830
   return {
     position: new Vector3(offset * CARD_WIDTH * scale * 1.045,
       halfHeight * (1 - 2 * (base + fan)),-distance - Math.abs(offset) * .006),
