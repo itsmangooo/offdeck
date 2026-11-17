@@ -63,7 +63,10 @@ test('deal and submissions remain private, reveal IDs are anonymous, votes lock,
   assert.throws(() => cast(a, match.view(room, a).responses.find(card => card.own)), /OWN_CARD/)
   assert.throws(() => cast(a, { id: 'bad' }), /BAD_CARD/)
   for (const [voter, author] of [[a, b], [b, c], [c, a]]) {
-    cast(voter, match.view(room, author).responses.find(card => card.own))
+    const choice = match.view(room,author).responses.find(card => card.own)
+    cast(voter,choice)
+    assert.equal(match.view(room,voter).voteChoiceId,choice.id)
+    assert.notEqual(match.view(room,author).voteChoiceId,choice.id)
     assert.throws(() => cast(voter), /ALREADY_VOTED/)
   }
   assert.equal(match.view(room, b).responses.some(card => 'points' in card), false)

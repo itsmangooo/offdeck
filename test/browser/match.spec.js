@@ -51,6 +51,7 @@ test('three independent browsers play every scenario and can replay in the same 
     await expect(page.getByRole('heading', { name: 'Final leaderboard' })).toBeVisible()
     await expect(page.getByText('3 scenarios played · 9 votes received')).toBeVisible()
     await expect(page.locator('.scores .winner')).toHaveCount(3)
+    await expect(page.locator('.scores .place')).toHaveText(['1','1','1'])
   }))
   await a.getByRole('button', { name: 'Play Again' }).click()
   await expect(guest.page.getByRole('heading', { name: 'Choose a response' })).toBeVisible()

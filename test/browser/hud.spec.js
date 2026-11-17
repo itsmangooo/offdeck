@@ -45,9 +45,13 @@ test('HUD clears the center and keeps keyboard and settings accessible across ph
     await a.screenshot({path:info.outputPath('voting-hud.png')})
     await a.mouse.click(vote.x,vote.y)
     await expect(a.getByText('Vote locked in.')).toBeVisible()
+    await expect(a.locator('.responses button[aria-pressed="true"]')).toBeDisabled()
+    await expect(pages[1].locator('.responses button[aria-pressed="true"]')).toHaveCount(0)
+    await a.screenshot({path:info.outputPath('vote-registered.png')})
     for (const page of pages.slice(1)) await page.locator('.responses button:enabled').first().click()
     await expect(a.getByRole('heading',{name:'Round results'})).toBeVisible()
     await expect(a.locator('.round-summary')).toBeVisible()
+    await expect(a.locator('.score-delta').first()).toBeVisible()
     await a.screenshot({path:info.outputPath('results-hud.png')})
   } finally {
     await Promise.all([host,...others].map(client=>client.context.close()))

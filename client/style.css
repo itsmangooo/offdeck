@@ -98,12 +98,22 @@ li > span { overflow-wrap: anywhere }
 .winner { background: #e9e1c9 }
 .scores { padding: 0; list-style: none }
 .scores li { padding-inline: 8px; gap: 4px }
+.scores strong { font-variant-numeric: tabular-nums }
+.score-name { flex: 1; min-width: 0 }
+.score-delta { flex: none; color: #326447; font-size: .75rem; font-weight: 700; padding-right: 5px }
+.responses article.vote-cast { background: #dbe9df; outline: 1px solid #65836d }
+.responses article.vote-cast small { color: #245140; font-weight: 700 }
 .score-panel h2 { padding-inline: 8px; margin: 5px 0; font-size: .84rem; letter-spacing: 0 }
 .round-summary { display: flex; gap: 8px; align-items: flex-start; border: 1px solid #e2d7bc; border-radius: 4px; background: #f1ead7; padding: 8px; margin: 6px 0; font-size: .85rem }
 .round-summary svg { width: 17px; height: 17px; flex-shrink: 0 }
 .round-summary span { display: block; margin-top: 3px; line-height: 1.3 }
 .final-results { justify-self: center; width: min(100%,520px) }
-.final-results .winner-line { color: #315140; font-weight: 700 }
+.final-results .winner-line { color: #315140; font-weight: 720 }
+.final-results .scores { margin: 0 }
+.final-results .scores li,.ranking-head { display: grid; align-items: center; grid-template-columns: 43px minmax(0,1fr) 50px; gap: 7px }
+.final-results .scores strong,.ranking-head span:last-child { text-align: right }
+.final-results .place { color: var(--muted); font-weight: 680; font-variant-numeric: tabular-nums }
+.ranking-head { padding: 7px 8px; margin-top: 16px; color: var(--muted); font-size: .75rem; font-weight: 650 }
 .final-results blockquote { background: #f0eee4; border: 1px solid #e4e0d2; border-radius: 5px; padding: 12px 14px; margin: 0 }
 .final-results blockquote strong,.final-results blockquote footer { display: block; margin-block: 3px; color: var(--muted); font-size: .82rem }
 .final-results blockquote strong { margin-bottom: 7px }

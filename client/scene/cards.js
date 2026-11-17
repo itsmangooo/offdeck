@@ -21,6 +21,7 @@ const FLIPPED = new T.Quaternion().setFromAxisAngle(Y_AXIS, Math.PI)
 const BORDER = new T.ShapeGeometry(roundedRectangle(WIDTH + .035, HEIGHT + .035, .047), 8)
 const focusMat = new T.MeshBasicMaterial({ color: '#c5d89a', toneMapped: false })
 const winnerMat = new T.MeshBasicMaterial({ color: '#efc979', toneMapped: false })
+const recordedMat = new T.MeshBasicMaterial({ color:'#749784',toneMapped:false })
 const easeOut = t => 1 - (1 - t) ** 3
 const easeTravel = t => t*t*(3-2*t)
 
@@ -60,7 +61,7 @@ function designBack() {
   })
 }
 
-function designFace({ text: content, kind: type, own, author, points, winner }) {
+function designFace({ text:content,kind:type,own,author,points,winner,recorded }) {
   const scenario = type === 'scenario'
   return texture(512,720,(ctx,w,h) => {
     ctx.fillStyle = scenario ? '#161d1a' : '#fbf6e8'
@@ -102,7 +103,15 @@ function designFace({ text: content, kind: type, own, author, points, winner }) 
       ctx.font = '650 26px system-ui'
       ctx.fillText(points + (points === 1 ? ' vote' : ' votes'),39,h - 47)
     } else {
-      ctx.fillText(own ? 'YOUR CARD' : 'OFFDECK', 39, h - 45)
+      if (recorded) {
+        ctx.fillStyle = '#dceadf'
+        ctx.fillRect(26,h-84,w-52,54)
+        ctx.fillStyle = '#2e5645'
+        ctx.font = '800 24px system-ui'
+        ctx.fillText('VOTE CAST',39,h-49)
+      } else {
+        ctx.fillText(own ? 'YOUR CARD' : 'OFFDECK',39,h-45)
+      }
     }
     ctx.textAlign = 'right'
     ctx.fillText('♦', w - 37, h - 45)
@@ -264,7 +273,8 @@ export class Cards {
     } else {
       for (const [index,response] of match.responses.entries()) {
         data.push({ ...response, key:'response:' + response.id, kind:'response', parent:this.scene,
-          center:true, index, ...responsePose(seat,match.responses.length,index) })
+          center:true,index,recorded:match.phase === 'vote' && match.voteChoiceId === response.id,
+          ...responsePose(seat,match.responses.length,index) })
       }
     }
     data.push(...this.handData(match.hand,seat,match.phase))
@@ -402,7 +412,7 @@ export class Cards {
         view.motion = null
         view.lift = 0
       }
-      if (data.center && view.data && view.data.author !== data.author && data.author !== undefined) {
+      if (data.center && view.data && (view.data.author !== data.author || view.data.recorded !== data.recorded)) {
         view.front.map.dispose()
         view.front.map = designFace(data)
         view.front.needsUpdate = true
@@ -442,8 +452,9 @@ export class Cards {
     view.winLift += (Number(Boolean(winner)) - view.winLift) * ease
     group.position.y += view.winLift * .075
     group.scale.setScalar(base.scale * (1 + view.lift * (scenario ? .035 : dense ? .07 : .13) + pulse * .07 + view.winLift * .04))
-    view.border.visible = Boolean(winner || view.lift > .12 || pulse)
-    view.border.material = winner ? winnerMat : focusMat
+    const recorded = !retired && view.data.recorded
+    view.border.visible = Boolean(winner || recorded || view.lift > .12 || pulse)
+    view.border.material = winner ? winnerMat : recorded ? recordedMat : focusMat
     if (view.shadow) {
       const { x, y, z } = group.position
       view.shadow.position.set(x,TABLE_Y + .008,z)

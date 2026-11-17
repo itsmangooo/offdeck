@@ -217,6 +217,19 @@ socket.on('room:state', state => {
   room = catchUp ? { ...state,seatSnapshot:true } : state
   receivedAt = performance.now()
   render()
+  if (!catchUp && !settings.reduced && previous && incoming?.phase !== previous.phase) {
+    if (incoming?.phase === 'results') {
+      for (const total of view.querySelectorAll('.score-delta,.round-summary')) {
+        total.animate([{opacity:.2,translate:'0 5px'},{opacity:1,translate:'0 0'}],
+          {duration:270,easing:'ease-out'})
+      }
+    }
+    if (incoming?.phase === 'finished' && incoming.outcome === 'complete') {
+      view.querySelector('.result-mark')?.animate(
+        [{transform:'scale(.88)',opacity:.55},{transform:'scale(1.09)',opacity:1},{transform:'scale(1)'}],
+        {duration:420,easing:'ease-out'})
+    }
+  }
   clock()
 })
 socket.on('room:closed', code => {

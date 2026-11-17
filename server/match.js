@@ -190,6 +190,7 @@ export class Match {
       canVote: phase === 'vote' && this.pauseRemaining === null &&
         this.voters(room).includes(viewer.id) && !this.votes.has(viewer.id),
       voted: this.votes.has(viewer.id),
+      voteChoiceId: phase === 'vote' ? this.votes.get(viewer.id) ?? null : null,
       spectator: !this.roster.has(viewer.id),
       seats: this.active ? [...this.roster].map(([id, player]) => ({
         id, handCount: player.hand.length, submitted: this.submissions.has(id), voted: this.votes.has(id)
