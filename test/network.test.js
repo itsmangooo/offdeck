@@ -1,8 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { once } from 'node:events'
+import { once, on } from 'node:events'
 import { io } from 'socket.io-client'
 import { startServer } from '../server/index.js'
+import { starterDecks } from '../server/decks.js'
+import { DEFAULT_MATCH_SCENARIOS, HAND_SIZE } from '../shared/protocol.js'
 
 async function player(url, cleanup) {
   const socket = io(url, { transports: ['websocket'], reconnection: false, timeout: 3000, auth: { adult: true } })
@@ -68,4 +70,71 @@ test('real WebSockets authorize host and seat ownership, keep tokens private, an
   assert.equal(replacement.state.selfId,bMatching.selfId)
   assert.deepEqual(replacement.state.match.hand,bMatching.match.hand)
   assert.deepEqual(await b.send('player:name',{ name: 'No' }),{ ok: false, code: 'NO_ROOM' })
+})
+
+async function matchWhen(client, predicate) {
+  const current = client.state?.match
+  if (current && predicate(current)) return current
+  for await (const [state] of on(client.socket, 'room:state', { signal: AbortSignal.timeout(5000) })) {
+    if (state.match && predicate(state.match)) return state.match
+  }
+}
+
+test('eight live clients complete the default 20-scenario match with approved content', { timeout: 35_000 }, async t => {
+  const server = await startServer({ port: 0, tickMs: 30, timing: { reveal: 300, results: 420 } })
+  t.after(() => server.close())
+  const table = await Promise.all(Array.from({ length: 8 }, () => player(server.url,t)))
+  const host = table[0]
+  const { id } = await host.send('room:create', { name: 'Host' })
+  await Promise.all(table.slice(1).map(async (client, index) =>
+    assert.equal((await client.send('room:join', { id, name: 'Guest ' + (index + 1) })).ok, true)))
+  assert.deepEqual(await host.send('match:start'), { ok: true })
+  const scenarios = new Map(starterDecks.scenarios.map(card => [card.id, card]))
+  const responses = new Map(starterDecks.responses.map(card => [card.id, card]))
+  const seen = new Set()
+
+  for (let round = 0; round < DEFAULT_MATCH_SCENARIOS; round++) {
+    const snapshots = await Promise.all(table.map(client =>
+      matchWhen(client, match => match.phase === 'select' && match.scenariosPlayed === round)))
+    const { roundId, scenario } = snapshots[0]
+    assert.deepEqual(scenario, scenarios.get(scenario.id))
+    assert.ok(!seen.has(scenario.id))
+    seen.add(scenario.id)
+    for (const match of snapshots) {
+      assert.equal(match.roundId, roundId)
+      assert.deepEqual(match.scenario, scenario)
+      assert.equal(match.hand.length, HAND_SIZE)
+      assert.equal(match.remaining, DEFAULT_MATCH_SCENARIOS - round - 1)
+      assert.deepEqual(match.responses, [])
+      for (const card of match.hand) assert.deepEqual(card, responses.get(card.id))
+    }
+    const dealt = snapshots.flatMap(match => match.hand.map(card => card.id))
+    assert.equal(new Set(dealt).size, table.length * HAND_SIZE)
+    await Promise.all(table.map(async (client, index) => assert.deepEqual(
+      await client.send('match:submit', { roundId, cardId: snapshots[index].hand[0].id }), { ok: true }
+    )))
+
+    const voting = await Promise.all(table.map(client =>
+      matchWhen(client, match => match.roundId === roundId && match.phase === 'vote')))
+    const own = voting.map((match, index) => {
+      assert.equal(match.responses.length, table.length)
+      const response = match.responses.find(response => response.own)
+      assert.equal(response.text, snapshots[index].hand[0].text)
+      assert.ok(match.responses.every(response => !('author' in response) && !('points' in response)))
+      return response.id
+    })
+    await Promise.all(table.map(async (client, index) => assert.deepEqual(
+      await client.send('match:vote', { roundId, responseId: own[(index + 1) % table.length] }), { ok: true }
+    )))
+    const results = await Promise.all(table.map(client =>
+      matchWhen(client, match => match.roundId === roundId && match.phase === 'results')))
+    for (const match of results) {
+      assert.ok(match.responses.every(response => response.winner && response.author && response.points === 1))
+      assert.deepEqual(match.ranked.map(player => player.points), Array(table.length).fill(round + 1))
+    }
+  }
+
+  const complete = await Promise.all(table.map(client => matchWhen(client, match => match.phase === 'finished')))
+  assert.ok(complete.every(match => match.outcome === 'complete' && match.scenariosPlayed === DEFAULT_MATCH_SCENARIOS))
+  assert.equal(seen.size, DEFAULT_MATCH_SCENARIOS)
 })
