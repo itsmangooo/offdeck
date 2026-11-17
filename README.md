@@ -3,8 +3,9 @@
 OFFDECK is a first-person 3D party card game for **3–8 players** in a desktop browser. Invite friends to a private poker table, match a response card to the scenario, and vote for the funniest combination.
 
 - Create a private room and share its invitation link. Each player joins with a nickname.
-- Sit at an eight-seat 3D poker table with floating-head avatars and a physical seven-card hand.
-- Submit and vote by clicking cards. Responses are shuffled and anonymous until voting ends.
+- Sit at an eight-seat 3D poker table with private floating hands, avatar reactions and a physical seven-card hand.
+- Click the scenario card for a close-up. Submit and vote by clicking physical cards. A private marker confirms your vote.
+- The edge-aligned HUD leaves the table clear. Voting rows adapt to the number of submitted cards.
 - Earn one point for each vote received. Scenarios progress automatically until the deck is exhausted.
 - Refresh or reconnect to the same seat. The room migrates the host when needed.
 - Play with 100 original scenarios and 400 original responses. Adjust volume, camera sensitivity, graphics quality and motion locally.
@@ -17,7 +18,7 @@ Captured from the production build with three connected browser clients using a 
 ![First-person gameplay with a seven-card hand](docs/screenshots/gameplay.png)
 ![Anonymous responses in the voting phase](docs/screenshots/voting.png)
 
-[Multiplayer lobby](docs/screenshots/lobby.png) · [Round results](docs/screenshots/round-results.png) · [Final leaderboard](docs/screenshots/final-results.png)
+[Multiplayer lobby](docs/screenshots/lobby.png) · [Card inspection](docs/screenshots/card-inspection.png) · [Round results](docs/screenshots/round-results.png) · [Final leaderboard](docs/screenshots/final-results.png)
 
 ## Quick start
 
@@ -38,12 +39,12 @@ For friends on your LAN, set `HOST=0.0.0.0` in a local `.env` and have everyone 
 
 1. Choose a nickname. The browser remembers it for 365 days. Change it in **Settings**.
 2. Create a room or open an invitation. The host can start when at least three players are connected.
-3. Read the scenario at the center of the table. Hover over any card in your seven-card hand to inspect it, then click the card to lock it in. The default response timer is 45 seconds.
-4. After the reveal, click another player’s response to vote. Each player who submitted a response can cast one vote. The default voting timer is 30 seconds.
+3. Click the scenario for a closer look. Press **Esc**, click the scene again, or use **Close inspection** to return to the table. Hover over a response to read it, then click to submit. The default response timer is 45 seconds.
+4. After the reveal, click another player’s response to vote. Each player who submitted a response can cast one vote. **Vote cast** appears on the chosen card in your view. The default voting timer is 30 seconds.
 5. Read the authors and vote totals in the results. Each vote received is worth one point. The highest-voted response wins the round, with ties shared.
 6. Play continues automatically. After the last scenario, the final leaderboard highlights the highest-scoring player or tied players. The host can play again in the same room.
 
-Move the mouse to look around the table. Open **Card list** in the match overlay for readable text and keyboard controls. The browser enables sound after the first interaction. A newcomer joining an active match spectates and can play in the next one.
+Move the mouse to look around from your seat. Open **Card list** in the upper-left HUD for keyboard submission, voting and scenario inspection. Reduced motion holds the camera steady and settles cards directly into place. Graphics quality adjusts resolution and shadows. A newcomer joining an active match spectates and can play in the next one.
 
 ## Project structure
 
@@ -67,7 +68,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The Node suite exercises the full 100-scenario deck at eight seats. The browser suite completes a three-scenario match through physical cards in three independent contexts and checks the lobby, scoring, rematches, reconnects, settings, audio and the eight-response layout.
+The Node suite exercises the full 100-scenario deck at eight seats. Playwright completes a three-scenario match through physical cards and runs additional rounds with five and eight independent browser contexts. It also covers all three desktop viewports, reconnects, host migration, settings, audio and both rematch paths. See the [v0.2 verification record](docs/V0.2.md).
 
 To run the browser suite against the production bundle, run `npm run build` and then use the command for your shell.
 
@@ -79,6 +80,8 @@ OFFDECK_BROWSER_PROD=1 npm run test:browser
 $env:OFFDECK_BROWSER_PROD = '1'
 npm run test:browser
 ```
+
+On Windows with installed Chrome, set `OFFDECK_CHROME_D3D11=1` to run the browser suite with hardware acceleration. After building, run `node test/measure-scene.js --chrome` for the reproducible 1440×900 sample.
 
 ## Deployment
 

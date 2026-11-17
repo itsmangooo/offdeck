@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { openPlayer } from './players.js'
-import { handTarget,responseTarget } from './targets.js'
+import { handTarget,responseTarget,scenarioTarget } from './targets.js'
 
 const home = 'http://127.0.0.1:3097'
 const capture = process.env.OFFDECK_CAPTURE === '1'
@@ -65,7 +65,16 @@ test('three independent browser clients finish a production match using only phy
     }))
     expect(hands.map(hand => hand.length)).toEqual([7,7,7])
     expect(new Set(hands.flat()).size).toBe(21)
-    if (round === 0) await snapshot('gameplay')
+    if (capture && round === 0) {
+      await snapshot('gameplay')
+      const {x,y} = scenarioTarget(sizes[0])
+      await a.mouse.click(x,y)
+      const close = a.getByRole('button',{name:'Close inspection Esc'})
+      await expect(close).toBeVisible()
+      await snapshot('card-inspection')
+      await a.keyboard.press('Escape')
+      await expect(close).toBeHidden()
+    }
     // Select the middle physical card on each camera. The accessible list stays closed.
     for (const [index,page] of pages.entries()) {
       const { x,y } = handTarget(sizes[index],index)

@@ -162,7 +162,7 @@ export class Cards {
       if (current) this.finishInspection()
       const group = source.group.clone()
       const from = this.inspectionPose(source)
-      const target = pose(new T.Vector3(0,.02,-1.43),UP,.89)
+      const target = pose(new T.Vector3(0,.014,-.98),UP,.61)
       group.position.copy(from.position)
       group.quaternion.copy(from.rotation)
       group.scale.setScalar(from.scale)
