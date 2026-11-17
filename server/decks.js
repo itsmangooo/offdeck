@@ -35,8 +35,9 @@ export function validateLibrary(cards, type) {
       throw new Error('Invalid ' + type + ' card at index ' + index)
     }
     const { id,category,text } = card
+    const blanks = type === 'scenario' ? text.match(/_+/g) ?? [] : []
     if (text.length > 120 || text !== text.trim() || /[^\x20-\x7e’“”—–…éâ]/u.test(text) ||
-        (type === 'scenario' && !text.endsWith('?'))) {
+        blanks.length > 1 || blanks.some(blank => blank !== '____')) {
       throw new Error('Invalid text for ' + id)
     }
     const signature = cardWords(text).join(' ')

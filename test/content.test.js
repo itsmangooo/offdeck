@@ -9,6 +9,15 @@ test('all 1,000 cards have stable unique IDs and the requested distribution', ()
   assert.equal(new Set(all.map(card => card.id)).size, 1000)
 })
 
+test('the scenario collection has questions, fill-ins and open setups', () => {
+  const scenarios = starterDecks.scenarios.map(card => card.text)
+  const fillIns = scenarios.filter(text => text.includes('____'))
+  const questions = scenarios.filter(text => !text.includes('____') && text.endsWith('?'))
+  assert.ok(fillIns.length >= 50 && fillIns.length <= 120)
+  assert.ok(questions.length >= 50)
+  assert.ok(scenarios.length - fillIns.length - questions.length >= 65)
+})
+
 test('invalid library records fail before a room can use them', () => {
   const scenarios = starterDecks.scenarios
   for (const invalid of [
@@ -16,7 +25,7 @@ test('invalid library records fail before a room can use them', () => {
     ...[
       { id: undefined }, { id: scenarios[1].id }, { category: 'other' },
       { text: '' }, { text: ' ?' }, { text: 'A test?' }, { text: 'A\u202E test?' },
-      { text: 'A'.repeat(120) + '?' }, { text: 'Not a question.' },
+      { text: 'A'.repeat(120) + '?' }, { text: 'I saw __.' }, { text: '____ found ____.' },
       { text: scenarios[1].text.toUpperCase().replaceAll("'", '’') }
     ].map(edit => [{ ...scenarios[0], ...edit }, ...scenarios.slice(1)])
   ]) assert.throws(() => validateLibrary(invalid, 'scenario'))
