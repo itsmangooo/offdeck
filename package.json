@@ -1,0 +1,25 @@
+{
+  "name": "offdeck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "node --env-file-if-exists=.env server/index.js --dev",
+    "build": "vite build",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "test": "node --test test/*.test.js",
+    "test:browser": "playwright test"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "vite": "^8.3.8"
+  }
+}

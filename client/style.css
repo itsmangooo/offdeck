@@ -1,0 +1,30 @@
+* { box-sizing: border-box }
+:root { font-family: Inter, Geist, system-ui, sans-serif; color: #191b16; background: #172920 }
+body { margin: 0; min-height: 100vh }
+#scene { position: fixed; inset: 0 }
+#app { position: relative; min-height: 100vh; display: grid; align-items: center; padding: 32px }
+.panel { background: #faf9f5; border: 1px solid #d8d9d1; border-radius: 10px; padding: 24px; width: min(100%, 480px) }
+h1,h2,p { margin: 0 }
+h1 { line-height: .92; letter-spacing: -.06em; font-size: 48px }
+.menu h1 { font-size: clamp(45px, 7vw, 76px); font-weight: 950 }
+.menu h1 span { color: #496641 }
+p { line-height: 1.5; margin: 16px 0 }
+nav,form { display: grid; gap: 10px }
+button,input { font: inherit; border: 1px solid #d8d9d1; border-radius: 5px; background: #fff; color: inherit; padding: 10px 12px }
+button { cursor: pointer; min-height: 44px; font-weight: 650 }
+button:hover:not(:disabled) { border-color: #55704c; background: #eef1e8 }
+button:disabled { opacity: .55; cursor: default }
+button.primary { background: #254a39; color: #fff; border-color: #254a39 }
+button.primary:hover:not(:disabled) { background: #35634e }
+:focus-visible { outline: 3px solid #8b9b61; outline-offset: 2px }
+label { display: grid; gap: 5px; font-size: 14px; font-weight: 650 }
+input { min-width: 0; width: 100%; font-weight: 400 }
+header,.actions,li { display: flex; align-items: center; gap: 8px }
+header,li { justify-content: space-between }
+.actions { flex-wrap: wrap; margin-top: 16px }
+ul { list-style: none; padding: 0; margin: 16px 0 }
+li { border-top: 1px solid #e0e2da; padding: 10px 0 }
+.shade { position: fixed; inset: 0; display: grid; place-items: center; padding: 20px; background: #111c17bb; z-index: 3 }
+.dialog header { margin-bottom: 16px }
+.connection,#notice:not(:empty) { position: fixed; z-index: 5; bottom: 20px; right: 20px; background: #fff; border: 1px solid #d8d9d1; border-radius: 5px; padding: 10px 14px }
+.connection { bottom: auto; top: 20px }
