@@ -128,6 +128,7 @@ export class TableScene {
 
   sync(room) {
     if (room === this.room) return
+    if (room?.match?.phase !== this.room?.match?.phase) this.hover(null)
     const self = room?.players.find(player => player.id === room.selfId)
     this.room = room
     this.seat = self ? SEATS[self.seat] : null

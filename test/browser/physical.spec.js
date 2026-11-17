@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { openPlayer } from './players.js'
 
 test('physical hand submission, anonymous vote and refresh recovery', async ({ browser }, info) => {
-  const host = await openPlayer(browser, 'Maya', undefined, { reducedMotion: 'no-preference', viewport: { width: 1200, height: 760 } })
+  const host = await openPlayer(browser, 'Maya', undefined, { viewport: { width: 1200, height: 760 } })
   const a = host.page
   await expect(a.locator('body.has-scene')).toHaveCount(1)
   await a.getByRole('button', { name: 'Create Room' }).click()
@@ -30,6 +30,7 @@ test('physical hand submission, anonymous vote and refresh recovery', async ({ b
   expect(own).toBeGreaterThanOrEqual(0)
   const position = index => ({ x: width * .5 + (index - 1) * height * .219, y: height * .55 })
   const mine = position(own)
+  await a.mouse.move(mine.x,mine.y)
   await a.mouse.click(mine.x,mine.y)
   await expect(a.getByText('Choose another player’s response.')).toBeVisible()
   await a.screenshot({ path: info.outputPath('voting.png') })

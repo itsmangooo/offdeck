@@ -243,7 +243,7 @@ function lobby() {
       <label>Invitation link<input id="invitation" readonly value="${escapeHtml(link)}"></label>
       ${button('Copy Link', 'copy', { glyph: 'copy' })}
     </div>
-    ${room.hostId === room.selfId && connected < 3 ? '<p class="lobby-status">Invite at least three players to start.</p>' : ''}
+    ${room.hostId === room.selfId && connected < 3 ? '<p class="lobby-status">Three connected players are needed to start.</p>' : ''}
     <div class="actions">
       ${room.hostId === room.selfId ? button('Start Game', 'start', { primary: true, glyph: 'play', disabled: pending || !socket.connected || connected < 3 }) : ''}
       ${button(self?.ready ? 'Unready' : 'Ready', 'ready', { glyph: 'check', primary: room.hostId !== room.selfId, disabled: pending || !socket.connected })}

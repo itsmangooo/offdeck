@@ -167,7 +167,7 @@ export class Cards {
       shadow = mesh(this.scene,this.shadowGeometry,this.shadow)
       shadow.rotation.x = -Math.PI / 2
     }
-    return { group, front, surface, border, shadow, lift: 0 }
+    return { group, front, surface, border, shadow, lift: 0, winLift: 0 }
   }
 
   handData(cards, lowered) {
@@ -391,13 +391,15 @@ export class Cards {
     group.position.y += arc
     group.quaternion.copy(base.rotation)
     const selected = !retired && view === this.hovered
-    view.lift += (Number(selected) - view.lift) * (this.still ? 1 : 1 - Math.exp(-dt * 16))
+    const ease = this.still ? 1 : 1 - Math.exp(-dt * 16)
+    view.lift += (Number(selected) - view.lift) * ease
     group.position.y += view.lift * (view.data.hand ? .136 : .19)
     if (view.data.hand) group.position.z += view.lift * .058
     const pulse = this.still || !view.pressedAt ? 0 : Math.max(0,1 - (time - view.pressedAt) / 260)
     const winner = !retired && view.data.winner
-    group.position.y += winner ? .035 : 0
-    group.scale.setScalar(base.scale * (1 + view.lift * .13 + pulse * .07))
+    view.winLift += (Number(Boolean(winner)) - view.winLift) * ease
+    group.position.y += view.winLift * .075
+    group.scale.setScalar(base.scale * (1 + view.lift * .13 + pulse * .07 + view.winLift * .04))
     view.border.visible = Boolean(winner || view.lift > .12 || pulse)
     view.border.material = winner ? winnerMat : focusMat
     if (view.shadow) {

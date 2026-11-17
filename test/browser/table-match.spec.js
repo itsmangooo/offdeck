@@ -76,7 +76,15 @@ test('three independent browser clients finish a production match using only phy
     }
 
     await Promise.all(pages.map(page => expect(page.locator('[data-phase="vote"]')).toBeVisible()))
-    if (round === 0) await snapshot('voting')
+    if (capture && round === 0) {
+      const own = await a.locator('.responses article').evaluateAll(cards =>
+        cards.findIndex(card => card.textContent.includes('Your Card')))
+      const { width, height } = sizes[0]
+      const col = (own + 1) % 3
+      await a.mouse.move(width * .5 + (col - 1) * height * .219, height * .55)
+      await expect(a.locator('#scene canvas')).toHaveCSS('cursor', 'pointer')
+      await snapshot('voting')
+    }
     for (const [index,page] of pages.entries()) {
       const cards = page.locator('.responses article')
       await expect(cards).toHaveCount(3)
