@@ -7,7 +7,7 @@ await startServer({
   decks: {
     ...starterDecks,
     scenarios: ['hookups', 'dark', 'unhinged'].flatMap(category =>
-      starterDecks.scenarios.filter(card => card.category === category).slice(0, 2))
+      starterDecks.scenarios.filter(card => card.category === category).slice(0, 3))
   },
   scenarioCount: 3,
   timing: { reveal: 1450, results: 3750 }
