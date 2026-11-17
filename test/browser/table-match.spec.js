@@ -55,7 +55,7 @@ test('three independent browser clients finish a production match using only phy
 
   const used = new Set()
   for (let round = 0; round < 3; round++) {
-    await Promise.all(pages.map(page => expect(page.locator('[data-phase="select"]')).toBeVisible()))
+    await Promise.all(pages.map(page => expect(page.locator('[data-phase="select"] .phase-panel')).toBeVisible()))
     const scenario = await a.locator('.scenario').textContent()
     expect(used.has(scenario)).toBe(false)
     used.add(scenario)
@@ -76,7 +76,7 @@ test('three independent browser clients finish a production match using only phy
       }
     }
 
-    await Promise.all(pages.map(page => expect(page.locator('[data-phase="vote"]')).toBeVisible()))
+    await Promise.all(pages.map(page => expect(page.locator('[data-phase="vote"] .phase-panel')).toBeVisible()))
     if (capture && round === 0) {
       const own = await a.locator('.responses article').evaluateAll(cards =>
         cards.findIndex(card => card.textContent.includes('Your Card')))
@@ -99,7 +99,7 @@ test('three independent browser clients finish a production match using only phy
     }
 
     await Promise.all(pages.map(async page => {
-      await expect(page.locator('[data-phase="results"]')).toBeVisible()
+      await expect(page.locator('[data-phase="results"] .phase-panel')).toBeVisible()
       await expect(page.locator('.scores strong')).toHaveText([String(2 * (round + 1)),String(round + 1),'0'])
       await expect(page.locator('.responses article.winner')).toHaveCount(1)
     }))

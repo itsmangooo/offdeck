@@ -109,25 +109,41 @@ li > span { overflow-wrap: anywhere }
 .final-results blockquote strong { margin-bottom: 7px }
 .match-stats { color: var(--muted); font-size: .88rem }
 .result-mark svg { width: 22px; height: 22px }
-.has-scene .match { position: fixed; top: 21px; left: 50%; transform: translateX(-50%); width: min(368px, 36vw); padding: 13px }
-.has-scene .match h1 { font-size: clamp(18px, 2.2vw, 27px); letter-spacing: -.04em }
-.has-scene .match .scenario { font-size: 15px; padding: 10px; margin: 9px 0 }
-.has-scene .match p { font-size: .875rem; margin: 7px 0 }
-.has-scene .game-meta { font-size: .76rem }
-.has-scene .game-meta svg { width: 14px; height: 14px }
-.has-scene .match:not(:has(.table-controls[open])) .scenario { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; padding: 0; margin: 0 }
-.has-scene .score-panel { position: absolute; right: calc(50% - 48vw); top: min(265px, 38vh); width: min(166px, 15vw); margin: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; padding: 5px }
+#app .match { --hud-edge:clamp(12px,1.45vw,25px) }
+.has-scene #app .match {
+  position: fixed; inset: 0; width: 100%; height: 100%; border: 0; padding: 0;
+  background: transparent; pointer-events: none;
+}
+.has-scene .phase-panel,.has-scene .score-panel,.has-scene .room-tools {
+  position: fixed; z-index: 1; background: var(--paper); pointer-events: auto;
+  border: 1px solid var(--line); border-radius: 7px;
+}
+.has-scene .phase-panel { top: var(--hud-edge); left: var(--hud-edge); width: min(272px,25vw); padding: 10px 12px 5px }
+.has-scene .phase-panel h1 { font-size: clamp(16px,1.55vw,23px); letter-spacing: -.04em }
+.has-scene #countdown { font-size: .92rem; padding: 4px 7px; min-width: 37px }
+.has-scene .phase-message { font-size: .78rem; line-height: 1.35; margin: 8px 0 4px }
+.has-scene .game-meta { font-size: .76rem; gap: 10px; flex-wrap: wrap }
+.has-scene .game-meta svg,.room-count svg { width: 14px; height: 14px }
+.has-scene .match .scenario { font-size: 15px; padding: 10px; margin: 8px 0 }
+.has-scene .score-panel { right: var(--hud-edge); top: var(--hud-edge); width: min(184px,17vw); padding: 7px 6px 6px }
 .has-scene .score-panel .scores { margin: 0; max-height: 30vh; overflow: auto }
 .has-scene .score-panel li { padding-block: 4px; font-size: .83rem }
-.has-scene .match .actions { margin-top: 4px }
-.has-scene .match .actions button { min-height: 31px; padding: 5px 8px; font-size: .77rem }
-.has-scene .match .actions button svg { width: 14px; height: 14px }
-.has-scene .table-controls[open] { max-height: 27vh; overflow: auto }
-.table-controls > summary { cursor: pointer; padding-block: 5px; font-weight: 650; font-size: .89rem }
+.has-scene .score-panel li span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.has-scene .round-summary { position: fixed; top: var(--hud-edge); left: 50%; transform: translateX(-50%); width: min(330px,34vw); margin: 0 }
+.has-scene .room-tools { left: var(--hud-edge); bottom: var(--hud-edge); padding: 7px; width: 136px }
+.room-count { display: flex; gap: 5px; align-items: center; color: var(--muted); font-size: .76rem; padding: 1px 4px }
+.has-scene .room-tools .actions { display: grid; gap: 4px; margin-top: 6px }
+.has-scene .room-tools button { justify-content: flex-start; min-height: 29px; padding: 4px 6px; font-size: .75rem }
+.has-scene .room-tools button svg,.has-scene .card-list-content button svg { width: 14px; height: 14px }
+.has-scene .card-list-content { max-height: min(48vh,450px); overflow: auto }
+.has-scene .card-list-content :is(.responses,.hand) { grid-template-columns: 1fr }
+.has-scene .card-list-content button { font-size: .81rem }
+.table-controls > summary { cursor: pointer; padding-block: 6px; font-weight: 650; font-size: .83rem }
+.has-scene:has(.match) .connection { top: auto; bottom: 63px }
 @media(max-width: 850px) {
   #app { padding: 16px }
-  .has-scene .match { width: min(400px,54vw); top: 12px }
-  .has-scene .score-panel { right: calc(50% - 49vw); width: 17vw }
+  .has-scene .phase-panel { width: min(300px,46vw) }
+  .has-scene .score-panel { width: 26vw }
   .menu { margin-left: 0 }
 }
 #close-inspection { position: fixed; z-index: 2; left: 50%; top: 82%; transform: translateX(-50%); }
