@@ -2,8 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { requireRule } from './rooms.js'
 import { shuffled } from './decks.js'
 import { beginScenarioHistory, newResponsePile, newScenarioPile, rememberResponse } from './rotation.js'
-import { HAND_SIZE } from '../shared/protocol.js'
-export const DEFAULT_MATCH_SCENARIOS = 20
+import { DEFAULT_MATCH_SCENARIOS, HAND_SIZE } from '../shared/protocol.js'
 
 const DEFAULT_TIMING = { reveal: 2600, results: 5000 }
 const ACTIVE = new Set(['select', 'reveal', 'vote', 'results'])

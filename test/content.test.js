@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { cardWords, starterDecks, validateLibrary } from '../server/decks.js'
+import { starterDecks } from '../server/decks.js'
+import { approvedDecks, cardWords, parseLibrary, readCardLibrary, validateLibrary } from '../server/card-library.js'
+
+const library = readCardLibrary()
 
 test('all 1,000 cards have stable unique IDs and the requested distribution', () => {
   assert.equal(starterDecks.scenarios.length, 250)
@@ -30,16 +33,33 @@ test('at least nine in ten responses in each category are two to twelve words', 
 })
 
 test('invalid library records fail before a room can use them', () => {
-  const scenarios = starterDecks.scenarios
+  const { scenario } = library
   for (const invalid of [
-    {}, scenarios.slice(1), [null, ...scenarios.slice(1)],
+    {}, [null, ...scenario.slice(1)],
     ...[
-      { id: undefined }, { id: scenarios[1].id }, { category: 'other' },
+      { id: undefined }, { id: scenario[1].id }, { category: 'other' }, { type: 'response' },
+      { status: 'archived' }, { tags: ['bad tag'] }, { tags: ['quiet','quiet'] },
+      { unfamiliar: true },
       { text: '' }, { text: ' ?' }, { text: 'A test?' }, { text: 'A\u202E test?' },
       { text: 'A'.repeat(120) + '?' }, { text: 'I saw __.' }, { text: '____ found ____.' },
-      { text: scenarios[1].text.toUpperCase().replaceAll("'", '’') }
-    ].map(edit => [{ ...scenarios[0], ...edit }, ...scenarios.slice(1)])
-  ]) assert.throws(() => validateLibrary(invalid, 'scenario'))
+      { text: scenario[1].text.toUpperCase().replaceAll("'", '’') }
+    ].map(edit => [{ ...scenario[0], ...edit }, ...scenario.slice(1)])
+  ]) assert.throws(() => validateLibrary({ ...library, scenario: invalid }))
+  assert.throws(() => parseLibrary({ scenario: '{broken', response: '[]' }), /invalid JSON/)
+})
+
+test('draft and disabled cards can exist without leaking into play', () => {
+  const edited = structuredClone(library)
+  edited.response[0].status = 'draft'
+  edited.response[1].status = 'disabled'
+  edited.response[2].tags = ['awkward', 'relationships']
+  edited.scenario[0].status = 'disabled'
+  const decks = approvedDecks(validateLibrary(edited))
+  assert.equal(decks.scenarios.length, 249)
+  assert.equal(decks.responses.length, 748)
+  assert.ok(!decks.responses.some(card => edited.response.slice(0, 2).some(excluded => excluded.id === card.id)))
+  assert.deepEqual(Object.keys(decks.responses[0]), ['id','text','category'])
+  assert.throws(() => approvedDecks({ ...edited, scenario: [] }), /cannot fill/)
 })
 
 test('near-identical phrasing is flagged for editorial review', () => {
