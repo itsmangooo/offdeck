@@ -12,11 +12,49 @@ export function makeDeck(lines, type) {
   return lines.map((text, index) => ({ id: type + '-' + (index + 1), text }))
 }
 
-function load(type) {
-  return makeDeck(JSON.parse(readFileSync(new URL('../decks/' + type + '.json', import.meta.url), 'utf8')), type)
+export const CARD_CATEGORIES = Object.freeze(['hookups', 'dating', 'expectations', 'dark', 'social', 'unhinged'])
+const LIBRARY_COUNTS = { scenario: 250, response: 750 }
+
+export function cardWords(text) {
+  // Apostrophes should not make “its” and “it's” count as different words.
+  return text.normalize('NFKC').toLowerCase().replace(/['’]/gu, '').match(/[\p{L}\p{N}]+/gu) ?? []
 }
 
-export const starterDecks = { scenarios: load('scenarios'), responses: load('responses') }
+export function validateLibrary(cards, type) {
+  if (!Array.isArray(cards) || cards.length !== LIBRARY_COUNTS[type]) {
+    throw new Error('Expected ' + LIBRARY_COUNTS[type] + ' ' + type + ' cards')
+  }
+  const ids = new Set()
+  const texts = new Set()
+  const categories = new Set()
+  const idPattern = new RegExp('^' + type + '-[0-9]{3}$')
+  for (const [index,card] of cards.entries()) {
+    if (!card || typeof card !== 'object' || Object.keys(card).length !== 3 ||
+        typeof card.id !== 'string' || !idPattern.test(card.id) || ids.has(card.id) ||
+        !CARD_CATEGORIES.includes(card.category) || typeof card.text !== 'string') {
+      throw new Error('Invalid ' + type + ' card at index ' + index)
+    }
+    const { id,category,text } = card
+    if (text.length > 120 || text !== text.trim() || /[^\x20-\x7e’“”—–…éâ]/u.test(text) ||
+        (type === 'scenario' && !text.endsWith('?'))) {
+      throw new Error('Invalid text for ' + id)
+    }
+    const signature = cardWords(text).join(' ')
+    if (!signature || texts.has(signature)) throw new Error('Empty or duplicate text for ' + id)
+    ids.add(id)
+    texts.add(signature)
+    categories.add(category)
+  }
+  if (categories.size !== CARD_CATEGORIES.length) throw new Error('Missing category in ' + type + ' library')
+  return cards
+}
+
+function load(type) {
+  const url = new URL('../decks/' + type + 's.json', import.meta.url)
+  return validateLibrary(JSON.parse(readFileSync(url, 'utf8')), type)
+}
+
+export const starterDecks = { scenarios: load('scenario'), responses: load('response') }
 
 export function shuffled(cards, pick = randomInt) {
   const copy = [...cards]
