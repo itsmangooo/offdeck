@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { openPlayer } from './players.js'
+import { confirmAge, openPlayer } from './players.js'
 import { handTarget,responseTarget,scenarioTarget } from './targets.js'
 
 const home = 'http://127.0.0.1:3097'
@@ -25,6 +25,7 @@ test('three independent browser clients finish a production match using only phy
   a.on('pageerror', error => errors.push(error.message))
   a.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })
   await a.goto(home)
+  await confirmAge(a)
   await a.getByLabel('Nickname').fill('Maya')
   await a.getByRole('button', { name: 'Continue' }).click()
   await expect(a.locator('body.has-scene')).toHaveCount(1)

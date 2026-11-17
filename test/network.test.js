@@ -5,13 +5,25 @@ import { io } from 'socket.io-client'
 import { startServer } from '../server/index.js'
 
 async function player(url, cleanup) {
-  const socket = io(url, { transports: ['websocket'], reconnection: false, timeout: 3000 })
+  const socket = io(url, { transports: ['websocket'], reconnection: false, timeout: 3000, auth: { adult: true } })
   cleanup.after(() => socket.close())
   const client = { send: (event, data = {}) => socket.timeout(3000).emitWithAck(event,data), socket }
   socket.on('room:state', state => { client.state = state })
   await once(socket,'connect')
   return client
 }
+
+test('the game socket requires an adult self-declaration', async t => {
+  const server = await startServer({ port: 0 })
+  t.after(() => server.close())
+  for (const auth of [{}, { adult: false }, { adult: 'true' }]) {
+    const socket = io(server.url, { transports: ['websocket'], auth, reconnection: false })
+    const [error] = await once(socket, 'connect_error')
+    assert.equal(error.message, 'AGE_CONFIRMATION_REQUIRED')
+    assert.equal(socket.connected, false)
+    socket.close()
+  }
+})
 
 test('real WebSockets authorize host and seat ownership, keep tokens private, and reject stale or unauthorized actions', async t => {
   const server = await startServer({ port: 0, publicOrigin: 'https://offdeckgames.com' })

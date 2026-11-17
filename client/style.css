@@ -86,6 +86,7 @@ li > span { overflow-wrap: anywhere }
 .shade { position: fixed; inset: 0; display: grid; place-items: center; padding: 20px; background: #101a16b8; z-index: 3; overflow: auto }
 .dialog { max-height: calc(100dvh - 40px); overflow: auto }
 .dialog header { margin-bottom: 14px }
+.age-exit { justify-self: center }
 .dialog .instructions { margin: 0; padding-left: 23px }
 .dialog .instructions li { display: list-item; padding: 9px 0; line-height: 1.45 }
 .help-note { color: var(--muted); font-size: .88rem; margin-bottom: 0 }

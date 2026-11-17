@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { openPlayer } from './players.js'
+import { confirmAge, openPlayer } from './players.js'
 
 test('settings persist, nickname updates live, graphics resize and mute controls real audio', async ({ browser }, info) => {
   const context = await browser.newContext({ reducedMotion: 'reduce' })
@@ -13,6 +13,7 @@ test('settings persist, nickname updates live, graphics resize and mute controls
   })
   const a = await context.newPage()
   await a.goto('http://127.0.0.1:3097')
+  await confirmAge(a)
   await a.getByLabel('Nickname').fill('Maya')
   await a.getByRole('button', { name: 'Continue' }).click()
   await a.getByRole('button', { name: 'Create Room' }).click()

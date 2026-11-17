@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client'
 import { DEFAULT_CONFIG, ROOM_ID, errors, nickname } from '../shared/protocol.js'
-import { readNickname, saveNickname, readSettings, saveSettings } from './preferences.js'
+import { readNickname, saveNickname, readSettings, saveSettings, readAgeConfirmation, saveAgeConfirmation } from './preferences.js'
 import { button, escapeHtml } from './ui.js'
 import { gameMarkup } from './game-ui.js'
 import { TableAudio } from './audio.js'
@@ -15,14 +15,16 @@ const view = document.querySelector('#view')
 const modal = document.querySelector('#modal')
 let viewMarkup
 let modalMarkup
-const socket = io({ transports: ['websocket'] })
-const storage = window.localStorage
+const socket = io({ transports: ['websocket'], autoConnect: false })
+let storage
+try { storage = window.localStorage } catch {}
+let age = readAgeConfirmation(storage) ? 'confirmed' : 'pending'
 let name = readNickname(storage)
 let settings = readSettings(storage, matchMedia('(prefers-reduced-motion: reduce)').matches)
 const audio = new TableAudio()
 audio.configure(settings)
 for (const event of ['pointerdown','keydown']) {
-  document.addEventListener(event, input => { if (input.isTrusted) audio.unlock() }, { capture: true })
+  document.addEventListener(event, input => { if (age === 'confirmed' && input.isTrusted) audio.unlock() }, { capture: true })
 }
 let room = null
 let receivedAt = 0
@@ -39,52 +41,58 @@ let invite = readInvite()
 let publicOrigin = location.origin
 let scene
 const canvasArea = document.querySelector('#scene')
-document.body.classList.add('loading-scene')
 document.body.classList.toggle('reduced-motion',settings.reduced)
 
-import('./scene/index.js').then(({ TableScene }) => {
-  scene = new TableScene(canvasArea,settings)
-  scene.sync(room)
-  canvasArea.addEventListener('cardhover', event => {
-    if (event.detail && !panel) audio.play('hover')
-  })
-  canvasArea.addEventListener('cardaction', event => {
-    if (!panel) playCard(event.detail.action, event.detail.id)
-  })
-  canvasArea.addEventListener('owncard', () => feedback('OWN_CARD'))
-  canvasArea.addEventListener('scenarioinspection', event => {
-    const close = document.querySelector('#close-inspection')
-    if (event.detail) {
-      close.hidden = false
-      if (view.contains(document.activeElement)) close.focus({ preventScroll: true })
-    } else {
-      const restoreFocus = document.activeElement === close
-      close.hidden = true
-      if (restoreFocus) view.querySelector('[data-action="inspect"]')?.focus({ preventScroll: true })
-    }
-  })
-  document.body.classList.add('has-scene')
-  canvasArea.addEventListener('sceneunavailable', () => {
-    document.body.classList.remove('has-scene')
-    feedback('The 3D view was interrupted. You can continue with the card list.')
-    render()
-  })
-  canvasArea.addEventListener('scenerestored', () => {
-    document.body.classList.add('has-scene')
-    render()
-  })
-}).catch(error => {
-  console.error('Could not initialize the 3D view', error)
-  feedback('The 3D view could not load. Card controls are available.')
-}).finally(() => {
-  document.body.classList.remove('loading-scene')
-  render()
-})
+function connectToGame() {
+  document.body.classList.add('loading-scene')
 
-fetch('/api/config').then(response => response.json()).then(config => {
-  if (config.publicOrigin) publicOrigin = config.publicOrigin
-  render()
-}).catch(() => {})
+  import('./scene/index.js').then(({ TableScene }) => {
+    scene = new TableScene(canvasArea,settings)
+    scene.sync(room)
+    canvasArea.addEventListener('cardhover', event => {
+      if (event.detail && !panel) audio.play('hover')
+    })
+    canvasArea.addEventListener('cardaction', event => {
+      if (!panel) playCard(event.detail.action, event.detail.id)
+    })
+    canvasArea.addEventListener('owncard', () => feedback('OWN_CARD'))
+    canvasArea.addEventListener('scenarioinspection', event => {
+      const close = document.querySelector('#close-inspection')
+      if (event.detail) {
+        close.hidden = false
+        if (view.contains(document.activeElement)) close.focus({ preventScroll: true })
+      } else {
+        const restoreFocus = document.activeElement === close
+        close.hidden = true
+        if (restoreFocus) view.querySelector('[data-action="inspect"]')?.focus({ preventScroll: true })
+      }
+    })
+    document.body.classList.add('has-scene')
+    canvasArea.addEventListener('sceneunavailable', () => {
+      document.body.classList.remove('has-scene')
+      feedback('The 3D view was interrupted. You can continue with the card list.')
+      render()
+    })
+    canvasArea.addEventListener('scenerestored', () => {
+      document.body.classList.add('has-scene')
+      render()
+    })
+  }).catch(error => {
+    console.error('Could not initialize the 3D view', error)
+    feedback('The 3D view could not load. Card controls are available.')
+  }).finally(() => {
+    document.body.classList.remove('loading-scene')
+    render()
+  })
+
+  fetch('/api/config').then(response => response.json()).then(config => {
+    if (config.publicOrigin) publicOrigin = config.publicOrigin
+    render()
+  }).catch(() => {})
+
+  socket.auth = { adult: true }
+  socket.connect()
+}
 
 document.querySelector('#close-inspection').addEventListener('click', () => scene?.inspectScenario(false))
 document.addEventListener('keydown', event => {
@@ -305,6 +313,9 @@ function dialog(title, content, close = true) {
 
 function overlay() {
   const submit = (label, disabled = pending) => `<button class="primary" ${disabled ? 'disabled' : ''}>${label}</button>`
+  if (age === 'pending') return dialog('OFFDECK — 18+', `<p>This game contains explicit language, sexual humor, dark comedy, and mature themes.</p>
+    <div class="actions">${button('I am 18 or older', 'age-confirm', { primary: true })}${button('Leave', 'age-leave')}</div>`, false)
+  if (age === 'declined') return ''
   if (!name) return dialog('Welcome to OFFDECK', `<p>Choose your nickname.</p><form data-form="nickname">${nameField()}${submit('Continue', false)}</form>`, false)
   if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending))
   if (panel === 'leave') return dialog('Leave match?', `<p>Leaving frees your seat and may end the match for the remaining players.</p><div class="actions">${button('Stay at Table','close',{primary:true})}${button('Leave Room','leave-confirm',{glyph:'signOut',disabled:pending})}</div>`)
@@ -336,7 +347,10 @@ function render() {
   const kind = room?.match ? room.match.phase === 'finished' ? 'final' : 'match' : room ? 'lobby' : 'menu'
   const base = room?.match ? gameMarkup(room,pending || !socket.connected) : room ? lobby() : menu()
   const loading = document.body.classList.contains('loading-scene') ? '<div class="render-loading" role="status">Opening the card room…</div>' : ''
-  const html = `${base}${loading}${!socket.connected ? `<div class="connection" role="status">${room ? 'Reconnecting to the room…' : 'Connecting to OFFDECK…'}</div>` : ''}`
+  const gameHtml = `${base}${loading}${!socket.connected ? `<div class="connection" role="status">${room ? 'Reconnecting to the room…' : 'Connecting to OFFDECK…'}</div>` : ''}`
+  const html = age === 'confirmed' ? gameHtml : age === 'declined' ?
+    `<section class="panel age-exit"><h1>You left OFFDECK.</h1>
+      <p>OFFDECK is for players aged 18 and older.</p>${button('Back to age confirmation', 'age-return')}</section>` : ''
   if (viewMarkup !== html) {
     const listExpanded = view.querySelector('.table-controls')?.open
     const inView = view.contains(focused)
@@ -426,6 +440,18 @@ app.addEventListener('click', async event => {
   const control = event.target.closest('[data-action]')
   const action = control?.dataset.action
   if (!action) return
+  if (age !== 'confirmed') {
+    if (action === 'age-confirm' && age === 'pending') {
+      age = 'confirmed'
+      saveAgeConfirmation(storage)
+      connectToGame()
+    } else if (action === 'age-leave') age = 'declined'
+    else if (action === 'age-return') age = 'pending'
+    render()
+    if (age === 'declined') view.querySelector('[data-action="age-return"]')?.focus()
+    else if (age === 'confirmed' && name && !invite) view.querySelector('[data-action="play"]')?.focus()
+    return
+  }
   if (['play', 'create', 'join', 'help', 'settings'].includes(action)) {
     if (view.contains(control)) opener = action
     panel = action
@@ -496,6 +522,7 @@ modal.addEventListener('input', event => {
 
 app.addEventListener('submit', async event => {
   event.preventDefault()
+  if (age !== 'confirmed') return
   const fields = Object.fromEntries(new FormData(event.target))
   if (event.target.dataset.form === 'nickname') {
     const updated = nickname(fields.name)
@@ -546,4 +573,5 @@ app.addEventListener('submit', async event => {
   }
 })
 
+if (age === 'confirmed') connectToGame()
 render()

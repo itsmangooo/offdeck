@@ -41,6 +41,10 @@ export async function startServer({
         source === scheme + '://' + request.headers.host))
     }
   })
+  io.use((socket, next) => {
+    if (socket.handshake.auth?.adult === true) next()
+    else next(new Error('AGE_CONFIRMATION_REQUIRED'))
+  })
   app.get('/healthz', (_request, response) => response.json({ ok: true }))
   app.get('/api/config', (_request, response) => response.json({ publicOrigin: origin }))
   let vite

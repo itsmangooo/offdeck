@@ -1,5 +1,21 @@
 import { nickname, NICKNAME_LIFETIME } from '../shared/protocol.js'
 
+const AGE_CONFIRMATION_KEY = 'offdeck.adult.v1'
+
+export function readAgeConfirmation(storage) {
+  try {
+    return storage.getItem(AGE_CONFIRMATION_KEY) === 'confirmed'
+  } catch {
+    return false
+  }
+}
+
+export function saveAgeConfirmation(storage) {
+  try {
+    storage.setItem(AGE_CONFIRMATION_KEY, 'confirmed')
+  } catch {}
+}
+
 export function readNickname(storage, now = Date.now()) {
   try {
     const data = JSON.parse(storage.getItem('offdeck.nickname'))

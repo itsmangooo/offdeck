@@ -21,7 +21,7 @@ for (const { count,viewport } of [
       const invite = new URL(await a.getByLabel('Invitation link').inputValue())
       const id = invite.pathname.split('/')[2]
       for (let index = 0; index < count; index++) {
-        const socket = io(home,{transports:['websocket'],reconnection:false})
+        const socket = io(home,{transports:['websocket'],reconnection:false,auth:{adult:true}})
         const client = {socket,state:null}
         clients.push(client)
         socket.on('room:state',state => {client.state = state})

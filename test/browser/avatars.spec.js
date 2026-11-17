@@ -1,5 +1,5 @@
 import { test,expect } from '@playwright/test'
-import { openPlayer } from './players.js'
+import { confirmAge, openPlayer } from './players.js'
 
 test('remote hands stay private across submission, disconnect and resume',async ({browser},info) => {
   const context = await browser.newContext({
@@ -14,6 +14,7 @@ test('remote hands stay private across submission, disconnect and resume',async 
   const guests = []
   try {
     await page.goto('http://127.0.0.1:3097')
+    await confirmAge(page)
     await page.getByLabel('Nickname').fill('Maya')
     await page.getByRole('button',{name:'Continue'}).click()
     await page.getByRole('button',{name:'Create Room'}).click()

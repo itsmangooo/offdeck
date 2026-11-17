@@ -41,6 +41,7 @@ try {
     }
   })
   await page.goto(server.url)
+  await page.getByRole('button', { name: 'I am 18 or older' }).click()
   await page.getByLabel('Nickname').fill('Maya')
   await page.getByRole('button', { name: 'Continue' }).click()
   await page.locator('body.has-scene').waitFor({ state: 'attached' })
@@ -57,7 +58,7 @@ try {
   if (!Number.isInteger(count) || count < 3 || count > 8) throw Error('Expected 3–8 players')
   for (let index=1;index<count;index++) {
     const name = 'Guest '+index
-    const socket = io(server.url, { transports: ['websocket'], reconnection: false })
+    const socket = io(server.url, { transports: ['websocket'], reconnection: false, auth: { adult: true } })
     guests.push(socket)
     await once(socket, 'connect')
     const joined = await socket.timeout(3000).emitWithAck('room:join', { id, name })
