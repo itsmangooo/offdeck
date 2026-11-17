@@ -14,6 +14,10 @@ export class TableScene {
     this.renderer.toneMapping = T.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.19
     this.renderer.shadowMap.enabled = true
+    const gl = this.renderer.getContext()
+    const debug = gl.getExtension('WEBGL_debug_renderer_info')
+    const driver = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : ''
+    this.software = /swiftshader|llvmpipe|software/i.test(driver)
     this.container.replaceChildren(this.renderer.domElement)
     this.scene = new T.Scene()
     this.camera = new T.PerspectiveCamera(MENU_FOV, 1, .09, 45)
@@ -26,6 +30,8 @@ export class TableScene {
     this.camera.position.set(6.15,4.85,5.62)
     this.camera.lookAt(this.target)
     this.still = matchMedia('(prefers-reduced-motion: reduce)').matches
+    this.cards.still = this.still
+    this.ray = new T.Raycaster()
     this.renderFrame = this.renderFrame.bind(this)
     this.lastTime = performance.now()
     this.dirty = true
@@ -40,14 +46,54 @@ export class TableScene {
       this.container.dispatchEvent(new Event('scenerestored'))
     })
     window.addEventListener('resize', () => this.resize())
-    this.canvas.addEventListener('pointermove', event => {
-      this.pointer.set(event.clientX / this.canvas.clientWidth * 2 - 1, 1 - event.clientY / this.canvas.clientHeight * 2)
+    this.canvas.addEventListener('pointermove', event => this.point(event))
+    this.canvas.addEventListener('pointerleave', () => {
+      this.pointer.set(0,0)
+      this.hover(null)
     })
-    this.canvas.addEventListener('pointerleave', () => this.pointer.set(0,0))
+    this.canvas.addEventListener('pointerdown', event => {
+      if (event.button !== 0) return
+      this.down = { x: event.clientX, y: event.clientY }
+    })
+    this.canvas.addEventListener('pointerup', event => {
+      const down = this.down
+      this.down = null
+      if (!down || event.button !== 0 || Math.hypot(event.clientX - down.x, event.clientY - down.y) > 8) return
+      const view = this.point(event)
+      const action = this.cards.action(view)
+      if (action) {
+        view.pressedAt = performance.now()
+        this.dirty = true
+        this.container.dispatchEvent(new CustomEvent('cardaction', { detail: { action, id: view.data.id } }))
+      } else if (view?.data.own && this.room?.match?.phase === 'vote') {
+        this.container.dispatchEvent(new Event('owncard'))
+      }
+    })
+    this.canvas.addEventListener('pointercancel', () => { this.down = null })
     this.resize()
     this.cards.sync(null)
     this.renderFrame(performance.now())
     this.renderer.setAnimationLoop(this.renderFrame)
+  }
+
+  point(event) {
+    const rect = this.canvas.getBoundingClientRect()
+    this.pointer.set((event.clientX - rect.left) / rect.width * 2 - 1,
+      1 - (event.clientY - rect.top) / rect.height * 2)
+    this.camera.updateWorldMatrix(true,false)
+    this.ray.setFromCamera(this.pointer,this.camera)
+    const view = this.cards.pick(this.ray)
+    this.hover(view)
+    return view
+  }
+
+  hover(view) {
+    if (view !== this.cards.hovered) {
+      this.dirty = true
+      this.cards.hovered = view
+      this.container.dispatchEvent(new CustomEvent('cardhover', { detail: view?.data ?? null }))
+    }
+    this.canvas.style.cursor = this.cards.action(view) ? 'pointer' : view ? 'default' : ''
   }
 
   resize() {
@@ -67,7 +113,10 @@ export class TableScene {
     this.room = room
     this.seat = self ? SEATS[self.seat] : null
     this.avatars.sync(room)
+    const hovered = this.cards.hovered
     this.cards.sync(room)
+    if (hovered && !this.cards.hovered) this.container.dispatchEvent(new CustomEvent('cardhover', { detail: null }))
+    this.hover(this.cards.hovered)
     this.dirty = true
   }
 
@@ -76,7 +125,8 @@ export class TableScene {
       this.lastTime = time
       return
     }
-    const dt = Math.min(.05,Math.max(0,(time - this.lastTime) / 1000))
+    if (!this.dirty && this.software && time - this.lastTime < 33) return
+    const dt = Math.min(.08,Math.max(0,(time - this.lastTime) / 1000))
     this.lastTime = time
     const seconds = time / 1000
     const mix = this.still ? 1 : 1 - Math.exp(-dt * 4)
@@ -85,7 +135,8 @@ export class TableScene {
 
     if (this.seat) {
       const { x,z,yaw } = this.seat
-      const drift = this.still ? 0 : this.pointer.x * 1.07
+      const focused = Boolean(this.cards.hovered)
+      const drift = this.still ? 0 : this.pointer.x * (focused ? .32 : 1.07)
       const emphasis = this.room.match?.phase === 'results' ? .06 : 0
       position.set(x + Math.sin(yaw) * .46, 2.79, z + Math.cos(yaw) * .46)
       aim.set(Math.cos(yaw) * drift, 1.47 + (this.still ? 0 : this.pointer.y * .18),
@@ -106,6 +157,7 @@ export class TableScene {
       this.camera.updateProjectionMatrix()
     }
     this.avatars.animate(seconds,this.still)
+    this.cards.animate(time,dt)
     this.renderer.render(this.scene,this.camera)
     this.dirty = false
   }

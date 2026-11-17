@@ -18,6 +18,20 @@ const darkEdge = new T.MeshStandardMaterial({ color: '#344a3d', roughness: .81 }
 const Y_AXIS = new T.Vector3(0,1,0)
 const X_AXIS = new T.Vector3(1,0,0)
 const UP = new T.Quaternion()
+const FLIPPED = new T.Quaternion().setFromAxisAngle(Y_AXIS, Math.PI)
+const BORDER = new T.ShapeGeometry(roundedRectangle(WIDTH + .035, HEIGHT + .035, .047), 8)
+const focusMat = new T.MeshBasicMaterial({ color: '#c5d89a', toneMapped: false })
+const winnerMat = new T.MeshBasicMaterial({ color: '#efc979', toneMapped: false })
+const easeOut = t => 1 - (1 - t) ** 3
+
+function pose(position, rotation, scale) {
+  return { position: position.clone(), rotation: rotation.clone(), scale }
+}
+
+function changed(before, after) {
+  return !before || before.position.distanceToSquared(after.position) > .000001 ||
+    before.rotation.angleTo(after.rotation) > .002 || before.scale !== after.scale
+}
 
 function wrap(ctx, content, width) {
   const result = []
@@ -61,7 +75,7 @@ function designBack() {
   })
 }
 
-function designFace(content, type) {
+function designFace(content, type, own) {
   const scenario = type === 'scenario'
   return texture(512,720,(ctx,w,h) => {
     ctx.fillStyle = scenario ? '#161d1a' : '#fbf6e8'
@@ -88,7 +102,7 @@ function designFace(content, type) {
     ctx.fillStyle = scenario ? '#a9be9a' : '#3e624b'
     ctx.font = '800 19px system-ui'
     ctx.letterSpacing = '4px'
-    ctx.fillText('OFFDECK', 39, h - 45)
+    ctx.fillText(own ? 'YOUR CARD' : 'OFFDECK', 39, h - 45)
     ctx.textAlign = 'right'
     ctx.fillText('♦', w - 37, h - 45)
   })
@@ -110,8 +124,11 @@ export class Cards {
     this.camera = camera
     this.views = new Map()
     this.back = frontMat(designBack())
-    this.prestack = null
     this.aspect = camera.aspect
+    this.retired = []
+    this.clock = performance.now()
+    this.hovered = null
+    this.still = false
   }
 
   build(data) {
@@ -119,11 +136,14 @@ export class Cards {
     group.name = data.kind + ' card'
     const edge = data.kind === 'scenario' || !data.text ? darkEdge : paperEdge
     mesh(group, pad, edge).receiveShadow = true
-    const front = data.text ? frontMat(designFace(data.text, data.kind)) : this.back
-    mesh(group, face, front, 0,0,.012)
+    const front = data.text ? frontMat(designFace(data.text, data.kind, data.own)) : this.back
+    const surface = mesh(group, face, front, 0,0,.012)
     const rear = mesh(group, face, this.back, 0,0,-.012)
     rear.rotation.y = Math.PI
-    return { group, front }
+    const border = mesh(group, BORDER, focusMat, 0,0,-.015)
+    border.visible = false
+    // Picking the physical body keeps both sides selectable during a flip.
+    return { group, front, surface, border, lift: 0 }
   }
 
   handData(cards) {
@@ -132,7 +152,7 @@ export class Cards {
       const delta = index - (cards.length - 1) / 2
       const angle = -delta * .049
       return {
-        ...card, key: 'hand:' + card.id, kind: 'response', parent: this.camera, hand: true,
+        ...card, key: 'hand:' + card.id, kind: 'response', parent: this.camera, hand: true, index,
         position: new T.Vector3(delta * spacing, -.566 - delta * delta * .006, -1.82 - Math.abs(delta) * .013 + index * .011),
         rotation: new T.Quaternion().setFromEuler(new T.Euler(-.115, delta * -.035, angle)),
         scale: .40
@@ -156,6 +176,7 @@ export class Cards {
         const length = Math.hypot(seat.x,seat.z)
         data.push({
           key: 'remote:' + player.id + ':' + index, kind: 'back', parent: this.scene, scale: .39,
+          memberId: player.id, remote: true, index,
           position: new T.Vector3(seat.x * (1 - .83 / length) + offset * Math.cos(seat.yaw),
             TABLE_Y + .028 + index * .002, seat.z * (1 - .83 / length) - offset * Math.sin(seat.yaw)),
           rotation: onTable(0, 0, seat.yaw + (index - 3) * .06).rotation
@@ -172,57 +193,210 @@ export class Cards {
       return data
     }
 
-    const scenarioPose = onTable(0,-.64,yaw,.85)
+    for (let index = 0; index < Math.min(6, match.remaining); index++) {
+      const pack = onTable(1.34,-.68,yaw + .08,0)
+      pack.position.y = TABLE_Y + .02 + index * .015
+      data.push({ key: 'pack:' + index, kind: 'back', parent: this.scene, scale: .60, index, ...pack })
+    }
+    const showResponses = match.phase !== 'select' && match.responses.length > 0
+    const scenarioPose = onTable(showResponses ? -1.36 : 0, showResponses ? -.70 : -.64, yaw,.85)
     scenarioPose.position.y += .22
     data.push({
       ...match.scenario, key: 'scenario:' + match.roundId, kind: 'scenario', parent: this.scene,
-      scale: .92, ...scenarioPose
+      scale: showResponses ? .76 : .92, ...scenarioPose
     })
     if (match.phase === 'select') {
       for (let index = 0; index < match.submittedCount; index++) {
         const pose = onTable((index - (match.submittedCount - 1)/2) * .24, .12, yaw - .15 + index * .035, .05)
         pose.position.y += index * .013
-        data.push({ key: 'submitted:' + index, kind: 'back', parent: this.scene, scale: .64, ...pose })
+        data.push({ key: 'submitted:' + index, kind: 'back', parent: this.scene, scale: .64, submitted: true, index, ...pose })
       }
     } else {
       const cols = Math.min(4, match.responses.length)
       for (const [index,response] of match.responses.entries()) {
         const itemsInRow = index >= 4 ? match.responses.length - 4 : cols
         const col = index % 4
-        const pose = onTable((col - (itemsInRow - 1)/2) * .58, index < 4 ? .18 : .85, yaw,.76)
-        pose.position.y += index < 4 ? .22 : .16
-        data.push({ ...response, key: 'response:' + response.id, kind: 'response', parent: this.scene, scale: .84, ...pose })
+        const twoRows = match.responses.length > 4
+        const frontRow = index >= 4
+        const depth = twoRows ? (frontRow ? .92 : -.12) : .23
+        const pose = onTable((col - (itemsInRow - 1)/2) * .60, depth, yaw,.76)
+        pose.position.y += twoRows ? (frontRow ? .11 : .50) : .21
+        data.push({ ...response, key: 'response:' + response.id, kind: 'response', parent: this.scene,
+          center: true, scale: twoRows ? .72 : .82, index, ...pose })
       }
     }
     data.push(...this.handData(match.hand))
     return data
   }
 
+  worldPose(view) {
+    view.group.updateWorldMatrix(true, false)
+    return {
+      position: view.group.getWorldPosition(new T.Vector3()),
+      rotation: view.group.getWorldQuaternion(new T.Quaternion()),
+      scale: view.group.scale.x
+    }
+  }
+
+  move(view, target, start, duration = 360, delay = 0, arc = 0) {
+    const origin = start ?? view.base ?? target
+    view.target = target
+    view.base = pose(origin.position,origin.rotation,origin.scale)
+    view.motion = { start: origin, duration, at: this.clock + delay, arc }
+  }
+
+  incoming(data, yaw, newMatch, collectFlight) {
+    if (data.submitted && collectFlight) return [collectFlight, 425, 0, .30]
+    if (data.hand) {
+      const from = onTable(.68,-.26,yaw,0)
+      from.position.y += .32
+      this.camera.updateWorldMatrix(true,false)
+      const local = this.camera.worldToLocal(from.position)
+      const start = pose(local, data.rotation.clone().multiply(FLIPPED), .28)
+      return [start, 590, data.index * 45 + (newMatch ? 220 : 70), .09]
+    }
+    if (data.remote) {
+      const from = onTable(.55,0,yaw,0)
+      return [pose(from.position,from.rotation,.30), 480, data.index * 37, .18]
+    }
+    if (data.kind === 'scenario') {
+      const from = onTable(1.34,-.68,yaw,0)
+      return [pose(from.position,from.rotation.clone().multiply(FLIPPED),.62), 740, newMatch ? 240 : 110, .25]
+    }
+    if (data.center) {
+      const from = onTable(0,.09,yaw,0)
+      from.position.y += data.index * .014
+      return [pose(from.position,from.rotation.clone().multiply(FLIPPED),.60), 630, 210 + data.index * 65, .30]
+    }
+    if (newMatch && data.key.startsWith('pack:')) {
+      const start = pose(data.position, data.rotation, data.scale)
+      start.position.x += data.index % 2 === 0 ? -.34 : .32
+      start.rotation.multiply(new T.Quaternion().setFromAxisAngle(Y_AXIS, data.index * .07))
+      return [start, 410, data.index * 33, .12]
+    }
+    return []
+  }
+
+  dispose(view) {
+    view.group.removeFromParent()
+    if (view.front === this.back) return
+    view.front.map.dispose()
+    view.front.dispose()
+  }
+
+  retire(view, yaw, faceDown) {
+    if (this.still) return this.dispose(view)
+    const base = this.worldPose(view)
+    this.scene.add(view.group)
+    if (faceDown) view.surface.material = this.back
+    const destination = faceDown ? onTable(0,.12,yaw,0) : onTable(-1.44,-.53,yaw,0)
+    const target = pose(destination.position, destination.rotation, faceDown ? .60 : .38)
+    this.move(view,target,base,faceDown ? 420 : 380,0,faceDown ? .33 : .14)
+    view.lift = 0
+    this.retired.push(view)
+  }
+
   sync(room) {
+    this.clock = performance.now()
+    const prior = this.room?.match
+    const current = room?.match
     this.room = room
-    const next = new Set()
-    for (const data of this.data(room)) {
-      next.add(data.key)
+    const self = room?.players.find(player => player.id === room.selfId)
+    const yaw = self ? SEATS[self.seat].yaw : 0
+    const sameRound = prior && current?.roundId === prior.roundId
+    const newMatch = !prior || prior.phase === 'finished'
+    const submittedNow = new Set(sameRound ? current.seats.filter(member => member.submitted &&
+      !prior.seats.find(old => old.id === member.id)?.submitted).map(member => member.id) : [])
+    const items = this.data(room)
+    const keys = new Set(items.map(data => data.key))
+    const flights = []
+    const needed = items.filter(data => data.submitted && !this.views.has(data.key)).length
+    for (const [key,view] of this.views) {
+      if (keys.has(key)) continue
+      this.views.delete(key)
+      if (this.hovered === view) this.hovered = null
+      const { data } = view
+      const faceDown = (data.hand && submittedNow.has(self?.id)) || (data.remote && submittedNow.has(data.memberId))
+      if (faceDown && flights.length < needed) {
+        flights.push(this.worldPose(view))
+        this.dispose(view)
+      } else if (faceDown || (prior?.roundId !== current?.roundId && (data.center || data.kind === 'scenario'))) {
+        this.retire(view,yaw,faceDown)
+      } else {
+        this.dispose(view)
+      }
+    }
+    for (const data of items) {
       let view = this.views.get(data.key)
+      const target = pose(data.position,data.rotation ?? UP,data.scale)
       if (!view) {
         view = this.build(data)
         this.views.set(data.key,view)
         data.parent.add(view.group)
+        const [start,duration,delay,arc] = this.incoming(data,yaw,newMatch,data.submitted ? flights.shift() : null)
+        this.move(view,target,start,duration,delay,arc)
+      } else if (changed(view.target,target)) {
+        this.move(view,target)
       }
       view.data = data
-      view.group.position.copy(data.position)
-      view.group.quaternion.copy(data.rotation ?? UP)
-      view.group.scale.setScalar(data.scale)
     }
-    for (const [key, view] of this.views) {
-      if (next.has(key)) continue
-      view.group.removeFromParent()
-      if (view.front !== this.back) {
-        view.front.map.dispose()
-        view.front.dispose()
-      }
-      this.views.delete(key)
+    this.animate(this.clock,0)
+  }
+
+  advance(view, time, dt, retired = false) {
+    const { motion, target, group, base } = view
+    let arc = 0
+    if (motion) {
+      const progress = this.still ? 1 : T.MathUtils.clamp((time - motion.at) / motion.duration,0,1)
+      const eased = easeOut(progress)
+      base.position.lerpVectors(motion.start.position,target.position,eased)
+      base.rotation.slerpQuaternions(motion.start.rotation,target.rotation,eased)
+      base.scale = T.MathUtils.lerp(motion.start.scale,target.scale,eased)
+      arc = motion.arc * Math.sin(progress * Math.PI)
+      if (progress === 1) view.motion = null
     }
+    group.position.copy(base.position)
+    group.position.y += arc
+    group.quaternion.copy(base.rotation)
+    const selected = !retired && view === this.hovered
+    view.lift += (Number(selected) - view.lift) * (this.still ? 1 : 1 - Math.exp(-dt * 16))
+    group.position.y += view.lift * (view.data.hand ? .136 : .19)
+    if (view.data.hand) group.position.z += view.lift * .058
+    const pulse = this.still || !view.pressedAt ? 0 : Math.max(0,1 - (time - view.pressedAt) / 260)
+    const winner = !retired && view.data.winner
+    group.position.y += winner ? .035 : 0
+    group.scale.setScalar(base.scale * (1 + view.lift * .13 + pulse * .07))
+    view.border.visible = Boolean(winner || view.lift > .12 || pulse)
+    view.border.material = winner ? winnerMat : focusMat
+    return Boolean(view.motion)
+  }
+
+  animate(time,dt) {
+    for (const view of this.views.values()) this.advance(view,time,dt)
+    this.retired = this.retired.filter(view => {
+      if (this.advance(view,time,dt,true)) return true
+      this.dispose(view)
+      return false
+    })
+  }
+
+  pick(ray) {
+    const match = this.room?.match
+    const candidates = [...this.views.values()].filter(view =>
+      (view.data.hand && match?.phase === 'select') || view.data.center || view.data.kind === 'scenario')
+    const meshes = candidates.map(view => {
+      view.group.updateWorldMatrix(true,true)
+      return view.group.children[0]
+    })
+    const hit = ray.intersectObjects(meshes,false)[0]
+    return hit ? candidates.find(view => view.group === hit.object.parent) : null
+  }
+
+  action(view) {
+    const match = this.room?.match
+    if (view?.data.hand && match?.canSubmit) return 'submit'
+    if (view?.data.center && !view.data.own && match?.canVote) return 'vote'
+    return null
   }
 
   resize(aspect) {

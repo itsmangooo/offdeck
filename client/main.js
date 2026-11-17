@@ -28,6 +28,10 @@ document.body.classList.add('loading-scene')
 import('./scene/index.js').then(({ TableScene }) => {
   scene = new TableScene(canvasArea)
   scene.sync(room)
+  canvasArea.addEventListener('cardaction', event => {
+    if (!panel) playCard(event.detail.action, event.detail.id)
+  })
+  canvasArea.addEventListener('owncard', () => feedback('OWN_CARD'))
   document.body.classList.add('has-scene')
   canvasArea.addEventListener('sceneunavailable', () => {
     document.body.classList.remove('has-scene')
@@ -278,6 +282,13 @@ function clock() {
 
 setInterval(clock, 150)
 
+function playCard(action, id) {
+  if (!room?.match) return
+  const roundId = room.match.roundId
+  if (action === 'submit') return request('match:submit', { cardId: id, roundId })
+  if (action === 'vote') return request('match:vote', { responseId: id, roundId })
+}
+
 app.addEventListener('click', async event => {
   const control = event.target.closest('[data-action]')
   const action = control?.dataset.action
@@ -290,8 +301,7 @@ app.addEventListener('click', async event => {
   if (action === 'leave') leave()
   if (action === 'start') request('match:start')
   if (action === 'lobby') request('match:lobby')
-  if (action === 'submit') request('match:submit', { cardId: control.dataset.card, roundId: room.match.roundId })
-  if (action === 'vote') request('match:vote', { responseId: control.dataset.card, roundId: room.match.roundId })
+  if (action === 'submit' || action === 'vote') playCard(action, control.dataset.card)
   if (action === 'ready') {
     const self = room.players.find(player => player.id === room.selfId)
     request('player:ready', { ready: !self.ready })
