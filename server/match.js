@@ -2,11 +2,16 @@ import { randomUUID } from 'node:crypto'
 import { requireRule } from './rooms.js'
 import { shuffled } from './decks.js'
 import { HAND_SIZE } from '../shared/protocol.js'
+export const DEFAULT_MATCH_SCENARIOS = 20
+
 const DEFAULT_TIMING = { reveal: 2600, results: 5000 }
 const ACTIVE = new Set(['select', 'reveal', 'vote', 'results'])
 
 export class Match {
-  constructor(room, decks, now, timing = {}, shuffle = shuffled) {
+  constructor(room, decks, now, { timing, shuffle = shuffled, scenarioCount = DEFAULT_MATCH_SCENARIOS } = {}) {
+    if (!Number.isSafeInteger(scenarioCount) || scenarioCount < 1 || !decks.scenarios.length) {
+      throw new RangeError('A match needs a positive scenario count and a scenario pool')
+    }
     const seated = [...room.players.values()].filter(player => player.socketId)
     requireRule(seated.length >= 3, 'NEED_PLAYERS')
     this.roster = new Map(seated.map(({ id, name }) => [id, { id, name, points: 0, hand: [] }]))
@@ -16,7 +21,7 @@ export class Match {
       vote: room.config.voteSeconds * 1000,
       ...DEFAULT_TIMING, ...timing
     }
-    this.scenarios = shuffle(decks.scenarios)
+    this.scenarios = shuffle(decks.scenarios).slice(-scenarioCount)
     this.responses = shuffle(decks.responses)
     this.scenarioDiscard = []
     this.responseDiscard = []

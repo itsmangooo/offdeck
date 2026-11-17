@@ -15,6 +15,7 @@ export async function startServer({
   store = new RoomStore(),
   decks = starterDecks,
   timing,
+  scenarioCount,
   tickMs = 150
 } = {}) {
   const address = publicOrigin ? new URL(publicOrigin) : null
@@ -171,7 +172,7 @@ export async function startServer({
     action('match:start', (_payload, { room, player }) => {
       requireRule(room.hostId === player.id, 'FORBIDDEN')
       requireRule(!room.match?.active, 'BAD_PHASE')
-      room.match = new Match(room, decks, store.now(), timing)
+      room.match = new Match(room, decks, store.now(), { timing, scenarioCount })
       room.touched = store.now()
       broadcast(room)
     })

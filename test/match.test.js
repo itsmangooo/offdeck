@@ -15,7 +15,7 @@ function fixture({ seats = 3, scenarios = 3, responses = 3 * HAND_SIZE } = {}) {
     scenarios: makeDeck(Array.from({ length: scenarios }, (_, i) => 'Scenario ' + i), 'scenario'),
     responses: makeDeck(Array.from({ length: responses }, (_, i) => 'Response ' + i), 'response')
   }
-  const match = new Match(room, deck, now, { select: 45, reveal: 2, vote: 30, results: 5 }, cards => [...cards].reverse())
+  const match = new Match(room, deck, now, { timing: { select: 45, reveal: 2, vote: 30, results: 5 }, shuffle: cards => [...cards].reverse() })
   return {
     match, players, room, store,
     update: (time = 0) => match.update(room, now += time),
@@ -126,10 +126,10 @@ test('scenario exhaustion ends the match and a small response pile recycles with
   assert.equal(match.view(room, players[0]).scenariosPlayed, 3)
 })
 
-test('eight players reach the end only after the entire starter scenario deck is discarded', () => {
-  const count = starterDecks.scenarios.length
+test('eight players complete exactly 20 unique scenarios by default', () => {
+  const count = 20
   const { room, players } = fixture({ seats: 8 })
-  const match = new Match(room, starterDecks, 0, { select: 15, reveal: 2, vote: 10, results: 5 })
+  const match = new Match(room, starterDecks, 0, { timing: { select: 15, reveal: 2, vote: 10, results: 5 } })
   const scenarios = new Set()
   let time = 0
   while (match.active) {
