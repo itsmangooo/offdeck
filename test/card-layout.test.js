@@ -3,16 +3,17 @@ import assert from 'node:assert/strict'
 import { SEATS } from '../client/scene/environment.js'
 import { handPose,responsePose,scenarioPose,wrapCardText } from '../client/scene/card-layout.js'
 import { projector } from './projection.js'
+import { HAND_SIZE } from '../shared/protocol.js'
 
 const displays = [[1280,720],[1440,900],[1920,1080]]
 const within = (box,width,height) => box.left >= 0 && box.right <= width && box.top >= 0 && box.bottom <= height
 const overlap = (a,b) => Math.min(a.right,b.right) > Math.max(a.left,b.left) &&
   Math.min(a.bottom,b.bottom) > Math.max(a.top,b.top)
 
-test('the seven-card fan fits every seat and desktop size, with clear text areas', () => {
+test('the five-card fan fits every seat and desktop size, with clear text areas', () => {
   for (const seat of SEATS) for (const [width,height] of displays) for (const phase of ['select','vote']) {
     const view = projector(seat,phase,width,height)
-    const poses = Array.from({length:7},(_,i) => handPose(seat,phase,width/height,7,i))
+    const poses = Array.from({length:HAND_SIZE},(_,i) => handPose(seat,phase,width/height,HAND_SIZE,i))
     const bounds = poses.map(pose => view.rect(pose,true))
     const text = poses.map(pose => view.rect(pose,true,true))
     assert.ok(bounds.every(box => within(box,width,height)))

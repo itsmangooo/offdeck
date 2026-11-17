@@ -31,7 +31,7 @@ test('scenario inspection opens by 3D click or keyboard and dismisses without su
     await expect(close).toBeFocused()
     await close.click()
     await expect(page.getByRole('button',{ name:'Inspect Scenario' })).toBeFocused()
-    await expect(page.locator('.hand button')).toHaveCount(7)
+    await expect(page.locator('.hand button')).toHaveCount(5)
     await guest.page.screenshot({ path:info.outputPath('diagonal-seat.png') })
   } finally {
     await Promise.all([host,guest,third].map(player => player.context.close()))

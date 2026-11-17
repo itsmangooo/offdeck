@@ -1,3 +1,5 @@
+import { HAND_SIZE } from '../shared/protocol.js'
+
 const settingsDefault = Object.freeze({ master: 75, effects: 70, muted: false })
 
 export class TableAudio {
@@ -81,7 +83,10 @@ export class TableAudio {
         this.note(now + .08,130.81,.10,.095)
         break
       case 'deal':
-        for (let i = 0; i < 6; i++) this.paper(now + i * .064,.085,1920 + i * 120,.22,-640)
+        for (let i = 0; i < HAND_SIZE; i++) this.paper(now + i * .064,.085,1920 + i * 120,.22,-640)
+        break
+      case 'draw':
+        this.paper(now,.115,2040,.17,-640)
         break
       case 'flip':
         for (let i = 0; i < 4; i++) this.paper(now + i * .084,.105,2850 - i * 150,.21,-880)

@@ -215,7 +215,7 @@ socket.on('room:state', state => {
   const catchUp = seatSnapshot
   seatSnapshot = false
   if (!catchUp && incoming && (incoming.phase !== previous?.phase || incoming.roundId !== previous?.roundId)) {
-    const cue = { select: 'deal', reveal: 'flip', results: 'results', finished: 'finished' }[incoming.phase]
+    const cue = { select: previous?.phase === 'results' ? 'draw' : 'deal', reveal: 'flip', results: 'results', finished: 'finished' }[incoming.phase]
     if (cue) audio.play(cue)
   }
   room = catchUp ? { ...state,seatSnapshot:true } : state
@@ -310,7 +310,7 @@ function overlay() {
   if (panel === 'leave') return dialog('Leave match?', `<p>Leaving frees your seat and may end the match for the remaining players.</p><div class="actions">${button('Stay at Table','close',{primary:true})}${button('Leave Room','leave-confirm',{glyph:'signOut',disabled:pending})}</div>`)
   if (panel === 'help') return dialog('How to Play', `<ol class="instructions">
     <li>Open a room and invite 3–8 players. The host starts the match.</li>
-    <li>Click the scenario card for a closer look. Hover over a response in your hand to read it, then click to lock it in.</li>
+    <li>Click the scenario card for a closer look. Hover over one of your five responses to read it, then click to lock it in.</li>
     <li>After the cards flip, click another player’s anonymous response to vote. Each vote received earns one point.</li>
     <li>Results reveal the authors. The next scenario starts automatically. The highest score wins when the deck is empty, and ties stand.</li>
   </ol><p class="help-note">Open Card list for keyboard controls. Move the mouse to look around the table.</p>`)

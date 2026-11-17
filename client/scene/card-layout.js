@@ -1,6 +1,7 @@
 import { Euler, MathUtils, Quaternion, Vector3 } from 'three'
 import { TABLE_Y } from './environment.js'
 import { seatedPose } from './camera.js'
+import { HAND_SIZE } from '../../shared/protocol.js'
 
 export const CARD_WIDTH = .64
 export const CARD_HEIGHT = .90
@@ -28,14 +29,14 @@ export function handPose(seat, phase, aspect, count, index) {
   const lowered = phase !== 'select'
   const distance = 1.14
   const halfHeight = distance * Math.tan(MathUtils.degToRad(fov / 2))
-  const cardHeight = lowered ? .121 : .224
+  const cardHeight = lowered ? .121 : .240
   const scale = Math.min(2 * halfHeight * cardHeight / CARD_HEIGHT,
-    (2 * halfHeight * aspect * .81) / (7.36 * CARD_WIDTH))
+    (2 * halfHeight * aspect * .81) / ((HAND_SIZE + .36) * CARD_WIDTH))
   const offset = index - (count - 1) / 2
   const fan = offset * offset * (lowered ? .0011 : .0018)
   const base = lowered ? .917 : .830
   return {
-    position: new Vector3(offset * CARD_WIDTH * scale * 1.045,
+    position: new Vector3(offset * CARD_WIDTH * scale * 1.07,
       halfHeight * (1 - 2 * (base + fan)),-distance - Math.abs(offset) * .006),
     rotation: new Quaternion().setFromEuler(new Euler(-.075,offset * -.022,offset * -.036)),
     scale

@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { requireRule } from './rooms.js'
 import { shuffled } from './decks.js'
-
-const HAND_SIZE = 7
+import { HAND_SIZE } from '../shared/protocol.js'
 const DEFAULT_TIMING = { reveal: 2600, results: 5000 }
 const ACTIVE = new Set(['select', 'reveal', 'vote', 'results'])
 

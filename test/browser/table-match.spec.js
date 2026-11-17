@@ -54,6 +54,7 @@ test('three independent browser clients finish a production match using only phy
   await a.getByRole('button', { name: 'Start Game' }).click()
 
   const used = new Set()
+  let previousHands
   for (let round = 0; round < 3; round++) {
     await Promise.all(pages.map(page => expect(page.locator('[data-phase="select"] .phase-panel')).toBeVisible()))
     const scenario = await a.locator('.scenario').textContent()
@@ -63,8 +64,16 @@ test('three independent browser clients finish a production match using only phy
       await expect(page.locator('.scenario')).toHaveText(scenario)
       return page.locator('.hand button').allTextContents()
     }))
-    expect(hands.map(hand => hand.length)).toEqual([7,7,7])
-    expect(new Set(hands.flat()).size).toBe(21)
+    expect(hands.map(hand => hand.length)).toEqual([5,5,5])
+    expect(new Set(hands.flat()).size).toBe(15)
+    if (previousHands) {
+      for (const [index,hand] of hands.entries()) {
+        const before = previousHands[index]
+        expect(hand.filter(card => before.includes(card))).toHaveLength(4)
+        expect(hand).not.toContain(before[2])
+      }
+    }
+    previousHands = hands
     if (capture && round === 0) {
       await snapshot('gameplay')
       const {x,y} = scenarioTarget(sizes[0])
@@ -97,9 +106,9 @@ test('three independent browser clients finish a production match using only phy
     for (const [index,page] of pages.entries()) {
       const cards = page.locator('.responses article')
       await expect(cards).toHaveCount(3)
-      await expect(cards.filter({ hasText: 'Your Card' }).getByRole('button', { includeHidden: true })).toHaveText(hands[index][3])
+      await expect(cards.filter({ hasText: 'Your Card' }).getByRole('button', { includeHidden: true })).toHaveText(hands[index][2])
       const others = cards.locator('button')
-      const expected = hands[index === 0 ? 1 : 0][3]
+      const expected = hands[index === 0 ? 1 : 0][2]
       const col = (await others.allTextContents()).indexOf(expected)
       expect(col).toBeGreaterThanOrEqual(0)
       const { x,y } = responseTarget(sizes[index],index,col)

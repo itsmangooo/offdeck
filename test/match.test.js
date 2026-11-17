@@ -3,8 +3,9 @@ import assert from 'node:assert/strict'
 import { RoomStore } from '../server/rooms.js'
 import { Match } from '../server/match.js'
 import { makeDeck, starterDecks } from '../server/decks.js'
+import { HAND_SIZE } from '../shared/protocol.js'
 
-function fixture({ seats = 3, scenarios = 3, responses = 21 } = {}) {
+function fixture({ seats = 3, scenarios = 3, responses = 3 * HAND_SIZE } = {}) {
   let now = 100
   const store = new RoomStore({ now: () => now })
   const { room, player } = store.create('Host', {}, 'host')
@@ -32,10 +33,10 @@ test('original starter deck meets content and eight-seat deal requirements', () 
   const match = new Match(room, starterDecks, 0)
   const dealt = players.flatMap(player => {
     const hand = match.view(room, player).hand
-    assert.equal(hand.length, 7)
+    assert.equal(hand.length, HAND_SIZE)
     return hand.map(card => card.id)
   })
-  assert.equal(new Set(dealt).size, 56)
+  assert.equal(new Set(dealt).size, 8 * HAND_SIZE)
 })
 
 test('deal and submissions remain private, reveal IDs are anonymous, votes lock, ties score correctly', () => {
@@ -43,7 +44,7 @@ test('deal and submissions remain private, reveal IDs are anonymous, votes lock,
   const aHand = match.view(room, a).hand
   const bHand = match.view(room, b).hand
   const privateCard = bHand[0]
-  assert.equal(aHand.length, 7)
+  assert.equal(aHand.length, HAND_SIZE)
   assert.ok(aHand.every(card => !bHand.includes(card)))
   assert.throws(() => submit(a, privateCard.id), /BAD_CARD/)
   submit(b)
@@ -109,11 +110,11 @@ test('scenario exhaustion ends the match and a small response pile recycles with
     used.add(view.scenario.id)
     const held = players.flatMap(player => {
       const hand = match.view(room, player).hand
-      assert.equal(hand.length, 7)
+      assert.equal(hand.length, HAND_SIZE)
       submit(player)
       return hand.map(card => card.id)
     })
-    assert.equal(new Set(held).size, 21)
+    assert.equal(new Set(held).size, 3 * HAND_SIZE)
     update()
     update(2)
     update(30)
@@ -138,11 +139,11 @@ test('eight players reach the end only after the entire starter scenario deck is
     scenarios.add(active.scenario.id)
     const hands = players.flatMap(player => {
       const hand = match.view(room,player).hand
-      assert.equal(hand.length,7)
+      assert.equal(hand.length,HAND_SIZE)
       match.submit(room,player,{ roundId: active.roundId, cardId: hand[0].id })
       return hand.map(card => card.id)
     })
-    assert.equal(new Set(hands).size,56)
+    assert.equal(new Set(hands).size,8*HAND_SIZE)
     match.update(room,time)
     match.update(room,time += 2)
     for (const [index,voter] of players.entries()) {
@@ -184,7 +185,7 @@ test('loss of quorum pauses deadlines, spectators cannot act, and an unrecoverab
   store.resume(room.id, c.token, 'new-socket')
   update()
   assert.equal(match.view(room, a).paused, false)
-  assert.equal(match.view(room, a).hand.length, 6)
+  assert.equal(match.view(room, a).hand.length, HAND_SIZE - 1)
   assert.throws(() => submit(spectator), /NOT_ELIGIBLE/)
   update(29)
   assert.equal(match.phase, 'select')

@@ -3,7 +3,7 @@
 OFFDECK is a first-person 3D party card game for **3–8 players** in a desktop browser. Invite friends to a private poker table, match a response card to the scenario, and vote for the funniest combination.
 
 - Create a private room and share its invitation link. Each player joins with a nickname.
-- Sit at an eight-seat 3D poker table with private floating hands, avatar reactions and a physical seven-card hand.
+- Sit at an eight-seat 3D poker table with private floating hands, avatar reactions and a physical five-card hand.
 - Click the scenario card for a close-up. Submit and vote by clicking physical cards. A private marker confirms your vote.
 - The edge-aligned HUD leaves the table clear. Voting rows adapt to the number of submitted cards.
 - Earn one point for each vote received. Scenarios progress automatically until the deck is exhausted.
@@ -39,7 +39,7 @@ For friends on your LAN, set `HOST=0.0.0.0` in a local `.env` and have everyone 
 
 1. Choose a nickname. The browser remembers it for 365 days. Change it in **Settings**.
 2. Create a room or open an invitation. The host can start when at least three players are connected.
-3. Click the scenario for a closer look. Press **Esc**, click the scene again, or use **Close inspection** to return to the table. Hover over a response to read it, then click to submit. The default response timer is 45 seconds.
+3. Click the scenario for a closer look. Press **Esc**, click the scene again, or use **Close inspection** to return to the table. Hover over one of your five responses to read it, then click to submit. The default response timer is 45 seconds.
 4. After the reveal, click another player’s response to vote. Each player who submitted a response can cast one vote. **Vote cast** appears on the chosen card in your view. The default voting timer is 30 seconds.
 5. Read the authors and vote totals in the results. Each vote received is worth one point. The highest-voted response wins the round, with ties shared.
 6. Play continues automatically. After the last scenario, the final leaderboard highlights the highest-scoring player or tied players. The host can play again in the same room.

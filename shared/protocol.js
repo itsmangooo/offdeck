@@ -1,3 +1,4 @@
+export const HAND_SIZE = 5
 export const ROOM_ID = /^[a-f0-9]{36}$/
 export const NICKNAME_LIFETIME = 365 * 24 * 60 * 60 * 1000
 export const DEFAULT_CONFIG = Object.freeze({ capacity: 8, selectSeconds: 45, voteSeconds: 30 })

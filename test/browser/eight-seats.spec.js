@@ -37,8 +37,8 @@ for (const { count,viewport } of [
       await expect.poll(() => guests.every(({state}) => state?.match?.phase === 'select')).toBe(true)
       const seen = guests.flatMap(({state}) => state.match.hand.map(card => card.text))
       seen.push(...await a.locator('.hand button').allTextContents())
-      expect(seen).toHaveLength(count*7)
-      expect(new Set(seen).size).toBe(count*7)
+      expect(seen).toHaveLength(count*5)
+      expect(new Set(seen).size).toBe(count*5)
       await a.screenshot({path:info.outputPath('hand.png')})
       for (const {socket,state} of guests) {
         const {roundId,hand} = state.match

@@ -1,8 +1,9 @@
 import { SEATS } from '../../client/scene/environment.js'
 import { handPose,responsePose,scenarioPose } from '../../client/scene/card-layout.js'
+import { HAND_SIZE } from '../../shared/protocol.js'
 import { projector } from '../projection.js'
 
-export function handTarget({width,height},seatIndex = 0,index = 3,count = 7) {
+export function handTarget({width,height},seatIndex = 0,index = Math.floor(HAND_SIZE/2),count = HAND_SIZE) {
   const seat = SEATS[seatIndex]
   return projector(seat,'select',width,height).center(handPose(seat,'select',width/height,count,index),true)
 }

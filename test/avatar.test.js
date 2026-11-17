@@ -7,7 +7,7 @@ import { CARD_HEIGHT,CARD_WIDTH } from '../client/scene/card-layout.js'
 
 test('all eight fans stay between the rail and their own avatar', () => {
   for (const seat of SEATS) for (const connected of [true,false]) {
-    const world = Array.from({length:7},(_,index) => remoteHandPose(seat,7,index,connected))
+    const world = Array.from({length:5},(_,index) => remoteHandPose(seat,5,index,connected))
     for (const pose of world) {
       const corners = [-1,1].flatMap(x => [-1,1].map(y =>
         new Vector3(x*CARD_WIDTH/2,y*CARD_HEIGHT/2,0).multiplyScalar(pose.scale)
