@@ -134,6 +134,7 @@ export function fitCardText(ctx, text, width, height, scenario) {
     ctx.font = weight + ' ' + size + 'px system-ui'
     if (size > minimum && words.some(word => ctx.measureText(word).width > width)) continue
     const lines = wrapCardText(ctx, text, width)
+    if (size > minimum && lines.length > 1 && /^[“"]?(?:a|an|the)$/i.test(lines[0])) continue
     balanceLastLine(ctx, lines, width)
     const lineHeight = size * 1.18
     if (lines.length * lineHeight <= height || size === minimum) return { lines,lineHeight }

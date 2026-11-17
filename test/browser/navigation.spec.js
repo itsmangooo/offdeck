@@ -7,6 +7,11 @@ test('keyboard navigation, copied invitations and active leave confirmation work
   const guests = []
   try {
     await host.context.grantPermissions(['clipboard-read','clipboard-write'])
+    await a.getByRole('button',{name:'How to Play'}).click()
+    const help = a.getByRole('dialog',{name:'How to Play'})
+    await expect(help).toContainText('A replacement brings your hand back to five.')
+    await expect(help).toContainText('20 scenarios in a standard match')
+    await help.getByRole('button',{name:'Close'}).click()
     await a.getByRole('button',{name:'Play',exact:true}).focus()
     await a.keyboard.press('Enter')
     await a.getByRole('dialog',{name:'Play'}).getByRole('button',{name:'Create Room'}).focus()

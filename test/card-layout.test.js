@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { SEATS } from '../client/scene/environment.js'
-import { handPose,responsePose,scenarioPose,wrapCardText } from '../client/scene/card-layout.js'
+import { handPose,responsePose,scenarioPose,wrapCardText,fitCardText } from '../client/scene/card-layout.js'
 import { projector } from './projection.js'
 import { HAND_SIZE } from '../shared/protocol.js'
 
@@ -45,4 +45,16 @@ test('long card text wraps within the paper width, including single long tokens'
   const lines = wrapCardText(ctx,text,150)
   assert.ok(lines.every(line => ctx.measureText(line).width <= 150))
   assert.equal(lines.join('').replaceAll(' ',''),text.replaceAll(' ',''))
+})
+
+test('a card keeps its opening article with the first word when there is room to reflow', () => {
+  const ctx = {
+    measureText(text) {
+      const fontSize = Number(/(\d+)px/.exec(this.font)[1])
+      return { width: text.length * fontSize * .53 }
+    }
+  }
+  const { lines, lineHeight } = fitCardText(ctx, 'A housewarming card signed by the last three evicted tenants.', 426, 480, false)
+  assert.equal(lines[0], 'A housewarming')
+  assert.ok(lines.length * lineHeight <= 480)
 })

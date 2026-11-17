@@ -1,24 +1,20 @@
 # OFFDECK
 
-OFFDECK is a first-person 3D party card game for **3–8 players** in a desktop browser. Invite friends to a private poker table, match a response card to the scenario, and vote for the funniest combination.
+OFFDECK is a first-person 3D party card game for **3–8 adults** in a desktop browser. Invite friends to a private poker table, play an anonymous response, and vote for the funniest combination.
 
-- Create a private room and share its invitation link. Each player joins with a nickname.
-- Sit at an eight-seat 3D poker table with private floating hands, avatar reactions and a physical five-card hand.
-- Click the scenario card for a close-up. Submit and vote by clicking physical cards. A private marker confirms your vote.
-- The edge-aligned HUD leaves the table clear. Voting rows adapt to the number of submitted cards.
-- Earn one point for each vote received. Scenarios progress automatically until the deck is exhausted.
-- Refresh or reconnect to the same seat. The room migrates the host when needed.
-- Play with 100 original scenarios and 400 original responses. Adjust volume, camera sensitivity, graphics quality and motion locally.
+**18+ content warning.** OFFDECK contains explicit language, sexual humor, dark comedy, and mature themes. First-time visitors confirm they are 18 or older. The browser remembers this self-declaration locally.
+
+The Unfiltered Update brings **1,000 original English cards** to the default game, with **250 scenarios** and **750 responses**. Cards span hookups, dating disasters, relationship expectations, dark humor, social taboos and surreal comedy. The server draws **20 unique scenarios** for each standard match. It balances categories and favors cards the room hasn't seen recently. Response cards are shuffled, dealt privately, and recycled only if the draw pile runs out. Recent card history stays with the room across rematches.
 
 ## Screenshots
 
 Captured from the production build with three connected browser clients using a three-scenario test deck.
 
 ![OFFDECK main menu and poker room](docs/screenshots/main-menu.png)
-![First-person gameplay with a seven-card hand](docs/screenshots/gameplay.png)
+![First-person gameplay with a five-card hand](docs/screenshots/gameplay.png)
 ![Anonymous responses in the voting phase](docs/screenshots/voting.png)
 
-[Multiplayer lobby](docs/screenshots/lobby.png) · [Card inspection](docs/screenshots/card-inspection.png) · [Round results](docs/screenshots/round-results.png) · [Final leaderboard](docs/screenshots/final-results.png)
+[18+ confirmation](docs/screenshots/age-confirmation.png) · [Multiplayer lobby](docs/screenshots/lobby.png) · [Card inspection](docs/screenshots/card-inspection.png) · [Round results](docs/screenshots/round-results.png) · [Final leaderboard](docs/screenshots/final-results.png)
 
 ## Quick start
 
@@ -37,12 +33,12 @@ For friends on your LAN, set `HOST=0.0.0.0` in a local `.env` and have everyone 
 
 ## How to play
 
-1. Choose a nickname. The browser remembers it for 365 days. Change it in **Settings**.
-2. Create a room or open an invitation. The host can start when at least three players are connected.
-3. Click the scenario for a closer look. Press **Esc**, click the scene again, or use **Close inspection** to return to the table. Hover over one of your five responses to read it, then click to submit. The default response timer is 45 seconds.
-4. After the reveal, click another player’s response to vote. Each player who submitted a response can cast one vote. **Vote cast** appears on the chosen card in your view. The default voting timer is 30 seconds.
-5. Read the authors and vote totals in the results. Each vote received is worth one point. The highest-voted response wins the round, with ties shared.
-6. Play continues automatically. After the last scenario, the final leaderboard highlights the highest-scoring player or tied players. The host can play again in the same room.
+1. Confirm you are 18 or older and choose a nickname. The browser remembers your nickname for 365 days. Change it in **Settings**.
+2. Create a room and share its invitation link, or open an invitation. The host can start when at least three players are connected.
+3. Click the scenario card for a close-up. Press **Esc** or choose **Close inspection** to return to the table. Hover over a response to read it and click to lock in one of your five cards.
+4. Responses are revealed anonymously when everyone submits or the timer expires. If you submitted, cast one private vote for another player's card. **Vote cast** confirms your choice privately. Vote totals and response authors are revealed in the results.
+5. Each vote received is worth one point. Ties are shared. Played responses are discarded, and a replacement brings each hand back to five for the next scenario.
+6. Rounds advance automatically until the scenario deck runs out. The final leaderboard shows the overall winner or tied winners. The host can start a fresh match in the same room.
 
 Move the mouse to look around from your seat. Open **Card list** in the upper-left HUD for keyboard submission, voting and scenario inspection. Reduced motion holds the camera steady and settles cards directly into place. Graphics quality adjusts resolution and shadows. A newcomer joining an active match spectates and can play in the next one.
 
@@ -53,12 +49,12 @@ Move the mouse to look around from your seat. Open **Card list** in the upper-le
 | `client/` | JavaScript UI, Three.js scene, storage, card interactions and Web Audio cues |
 | `server/` | Express, Socket.IO, room sessions, private state, deadlines and authoritative match rules |
 | `shared/` | Protocol constants and nickname validation |
-| `decks/` | Editable JSON arrays of English scenario and response text |
+| `decks/` | Editable JSON arrays of English cards with stable IDs, categories and text |
 | `public/` | Browser assets and third-party license notices |
 | `test/` | Node rules and transport tests plus Playwright multiplayer and visual tests |
-| `docs/` | [Development milestones](docs/MILESTONES.md) and screenshots |
+| `docs/` | [v0.3 verification record](docs/V0.3.md) and screenshots |
 
-The app uses JavaScript, Vite, Three.js and Web Audio on the client, with Node.js, Express and Socket.IO on the server. The server maintains hands, deadlines, submissions, votes and scores. Each client receives a private, viewer-specific snapshot. Card text is loaded from the two JSON decks at server startup. Use unique, non-empty strings of up to 170 characters when editing either deck.
+The app uses JavaScript, Vite, Three.js and Web Audio on the client, with Node.js, Express and Socket.IO on the server. The server maintains hands, deadlines, submissions, votes and scores. Each client receives a private, viewer-specific snapshot. Card text is loaded from the two JSON decks at server startup. Keep each record's ID stable when editing. Card text should be unique, non-empty and at most 120 characters.
 
 ## Testing
 
@@ -68,7 +64,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The Node suite exercises the full 100-scenario deck at eight seats. Playwright completes a three-scenario match through physical cards and runs additional rounds with five and eight independent browser contexts. It also covers all three desktop viewports, reconnects, host migration, settings, audio and both rematch paths. See the [v0.2 verification record](docs/V0.2.md).
+The Node suite validates all 1,000 cards and simulates repeated 20-scenario matches at eight seats, including a separate draw-pile exhaustion test. Playwright completes a physical-card match and exercises two complete rematches, five- and eight-client sessions, all three desktop viewports, age confirmation, reconnects and host migration. See the [v0.3 verification record](docs/V0.3.md).
 
 To run the browser suite against the production bundle, run `npm run build` and then use the command for your shell.
 

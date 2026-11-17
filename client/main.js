@@ -261,7 +261,7 @@ function menu() {
   return `<section class="menu panel">
     <div class="menu-mark" aria-hidden="true">♦</div>
     <h1>OFFDECK<span>.</span></h1>
-    <p>A party card game for 3–8 players.</p>
+    <p>An 18+ party card game for 3–8 players.</p>
     <nav aria-label="Main menu">
       ${button('Play', 'play', { primary: true, glyph: 'play', className: 'menu-play' })}
       <div class="menu-rooms">
@@ -322,8 +322,8 @@ function overlay() {
   if (panel === 'help') return dialog('How to Play', `<ol class="instructions">
     <li>Open a room and invite 3–8 players. The host starts the match.</li>
     <li>Click the scenario card for a closer look. Hover over one of your five responses to read it, then click to lock it in.</li>
-    <li>After the cards flip, click another player’s anonymous response to vote. Each vote received earns one point.</li>
-    <li>Results reveal the authors. The next scenario starts automatically. The highest score wins when the deck is empty, and ties stand.</li>
+    <li>After the cards flip, click another player’s anonymous response to vote. Each received vote earns one point. The table reveals authors and vote totals in the results.</li>
+    <li>A replacement brings your hand back to five. Rounds advance automatically through 20 scenarios in a standard match. The highest score wins when the deck is empty, and ties stand.</li>
   </ol><p class="help-note">Open Card list for keyboard controls. Move the mouse to look around the table.</p>`)
   if (panel === 'play') return dialog('Play', `<div class="actions">${button('Create Room', 'create', { primary: true })}${button('Join Room', 'join')}</div>`)
   if (panel === 'create') return dialog('Create Room', `<form data-form="create">
