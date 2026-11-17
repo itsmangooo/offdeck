@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { openPlayer } from './players.js'
+import { handTarget,responseTarget } from './targets.js'
 
 test('physical hand submission, anonymous vote and refresh recovery', async ({ browser }, info) => {
   const host = await openPlayer(browser, 'Maya', undefined, { viewport: { width: 1200, height: 760 } })
@@ -13,8 +14,8 @@ test('physical hand submission, anonymous vote and refresh recovery', async ({ b
   await a.getByRole('button', { name: 'Start Game' }).click()
   await expect(a.getByRole('heading', { name: 'Choose a response' })).toBeVisible()
   const canvas = a.locator('#scene canvas')
-  const { width, height } = await canvas.boundingBox()
-  const middleHand = { x: width * .5, y: height * .84 }
+  const size = await canvas.boundingBox()
+  const middleHand = handTarget(size)
   await a.mouse.move(middleHand.x,middleHand.y)
   await expect(canvas).toHaveCSS('cursor','pointer')
   await a.screenshot({ path: info.outputPath('card-inspection.png') })
@@ -28,7 +29,7 @@ test('physical hand submission, anonymous vote and refresh recovery', async ({ b
   const own = await a.locator('.responses article').evaluateAll(cards =>
     cards.findIndex(card => card.textContent.includes('Your Card')))
   expect(own).toBeGreaterThanOrEqual(0)
-  const position = index => ({ x: width * .5 + (index - 1) * height * .219, y: height * .55 })
+  const position = index => responseTarget(size,0,index)
   const mine = position(own)
   await a.mouse.move(mine.x,mine.y)
   await a.mouse.click(mine.x,mine.y)

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { openPlayer } from './players.js'
+import { scenarioTarget } from './targets.js'
 
 test('scenario inspection opens by 3D click or keyboard and dismisses without submitting', async ({ browser }, info) => {
   const host = await openPlayer(browser,'Maya')
@@ -14,11 +15,11 @@ test('scenario inspection opens by 3D click or keyboard and dismisses without su
     await page.getByRole('button',{ name:'Start Game' }).click()
     await expect(page.getByRole('heading',{ name:'Choose a response' })).toBeVisible()
     const canvas = page.locator('#scene canvas')
-    const { width,height } = await canvas.boundingBox()
-    await page.mouse.move(width*.5,height*.44)
+    const { x,y } = scenarioTarget(await canvas.boundingBox())
+    await page.mouse.move(x,y)
     await expect(canvas).toHaveCSS('cursor','zoom-in')
     await page.screenshot({ path:info.outputPath('seated.png') })
-    await page.mouse.click(width*.5,height*.44)
+    await page.mouse.click(x,y)
     const close = page.getByRole('button',{ name:'Close inspection Esc' })
     await expect(close).toBeVisible()
     await page.screenshot({ path:info.outputPath('inspect.png') })

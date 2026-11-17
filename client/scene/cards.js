@@ -1,8 +1,7 @@
 import * as T from 'three'
 import { mesh, roundedRectangle, texture, TABLE_Y, SEATS } from './environment.js'
-
-const WIDTH = .64
-const HEIGHT = .90
+import { CARD_WIDTH as WIDTH, CARD_HEIGHT as HEIGHT, tableCard as onTable, handPose,
+  scenarioPose, responsePose, wrapCardText } from './card-layout.js'
 const outline = roundedRectangle(WIDTH, HEIGHT, .032)
 const pad = new T.ExtrudeGeometry(outline, {
   depth: .016, bevelEnabled: true, bevelSize: .004, bevelThickness: .003, bevelSegments: 1, curveSegments: 6
@@ -16,7 +15,6 @@ const frontMat = (map) => new T.MeshBasicMaterial({ map, toneMapped: false })
 const paperEdge = new T.MeshStandardMaterial({ color: '#e1dac5', roughness: .81 })
 const darkEdge = new T.MeshStandardMaterial({ color: '#344a3d', roughness: .81 })
 const Y_AXIS = new T.Vector3(0,1,0)
-const X_AXIS = new T.Vector3(1,0,0)
 const UP = new T.Quaternion()
 const FLIPPED = new T.Quaternion().setFromAxisAngle(Y_AXIS, Math.PI)
 const BORDER = new T.ShapeGeometry(roundedRectangle(WIDTH + .035, HEIGHT + .035, .047), 8)
@@ -31,21 +29,6 @@ function pose(position, rotation, scale) {
 function changed(before, after) {
   return !before || before.position.distanceToSquared(after.position) > .000001 ||
     before.rotation.angleTo(after.rotation) > .002 || before.scale !== after.scale
-}
-
-function wrap(ctx, content, width) {
-  const result = []
-  let line = ''
-  for (const word of content.split(/\s+/)) {
-    if (line && ctx.measureText(line + ' ' + word).width > width) {
-      result.push(line)
-      line = word
-    } else {
-      line += (line ? ' ' : '') + word
-    }
-  }
-  if (line) result.push(line)
-  return result
 }
 
 function designBack() {
@@ -90,16 +73,22 @@ function designFace({ text: content, kind: type, own, author, points, winner }) 
     ctx.fillText(scenario ? 'SCENARIO' : 'RESPONSE', 39, 76)
     ctx.letterSpacing = '0px'
     ctx.fillStyle = scenario ? '#fff6e4' : '#17251e'
-    let font = content.length < 40 ? 58 : 53
-    const reserved = author === undefined ? 222 : 270
+    let font = content.length < 40 ? 63 : 57
+    const textWidth = w - 86
+    const bottom = author === undefined ? 631 : 579
+    const top = 111
+    const words = content.split(/\s+/)
     let lines
     do {
-      ctx.font = '700 ' + font + 'px system-ui'
-      lines = wrap(ctx, content, w - 78)
-      if (lines.length * font * 1.20 < h - reserved || font === 36) break
+      ctx.font = (scenario ? '690 ' : '610 ') + font + 'px system-ui'
+      lines = wrapCardText(ctx,content,textWidth)
+      const wordsFit = words.every(word => ctx.measureText(word).width <= textWidth)
+      if ((wordsFit && lines.length * font * 1.18 <= bottom-top) || font === 34) break
       font--
-    } while (font >= 36)
-    for (let index = 0; index < lines.length; index++) ctx.fillText(lines[index], 38, 159 + index * font * 1.20, w - 76)
+    } while (font >= 34)
+    ctx.textBaseline = 'top'
+    for (let index = 0; index < lines.length; index++) ctx.fillText(lines[index], 43, top + index * font * 1.18)
+    ctx.textBaseline = 'alphabetic'
     ctx.fillStyle = scenario ? '#a9be9a' : '#3e624b'
     ctx.font = '800 19px system-ui'
     ctx.letterSpacing = '4px'
@@ -116,16 +105,6 @@ function designFace({ text: content, kind: type, own, author, points, winner }) 
     ctx.textAlign = 'right'
     ctx.fillText('♦', w - 37, h - 45)
   })
-}
-
-function onTable(x, depth, yaw, tilt = .12) {
-  return {
-    position: new T.Vector3(x * Math.cos(yaw) + depth * Math.sin(yaw), TABLE_Y + .075,
-      -x * Math.sin(yaw) + depth * Math.cos(yaw)),
-    rotation: new T.Quaternion().setFromAxisAngle(Y_AXIS, yaw).multiply(
-      new T.Quaternion().setFromAxisAngle(X_AXIS, -Math.PI / 2 + tilt)
-    )
-  }
 }
 
 export class Cards {
@@ -229,24 +208,18 @@ export class Cards {
     return { group, front, surface, border, shadow, lift: 0, winLift: 0 }
   }
 
-  handData(cards, lowered) {
-    const spacing = Math.min(.237, .155 * this.aspect)
-    return cards.map((card, index) => {
-      const delta = index - (cards.length - 1) / 2
-      const angle = -delta * .049
-      return {
-        ...card, key: 'hand:' + card.id, kind: 'response', parent: this.camera, hand: true, index,
-        position: new T.Vector3(delta * spacing, -.566 - delta * delta * .006 - (lowered ? .24 : 0), -1.82 - Math.abs(delta) * .013 + index * .011),
-        rotation: new T.Quaternion().setFromEuler(new T.Euler(-.115, delta * -.035, angle)),
-        scale: .40
-      }
-    })
+  handData(cards, seat, phase) {
+    return cards.map((card,index) => ({
+      ...card, key:'hand:' + card.id, kind:'response', parent:this.camera, hand:true, index,
+      ...handPose(seat, phase, this.aspect, cards.length,index)
+    }))
   }
 
   data(room) {
     const match = room?.match
     const self = room?.players.find(player => player.id === room.selfId)
-    const yaw = self ? SEATS[self.seat].yaw : 0
+    const seat = SEATS[self?.seat ?? 0]
+    const yaw = seat.yaw
     const playing = match && match.phase !== 'finished'
     const data = []
     const stacks = playing ? match.seats : room?.players.map(player => ({ id: player.id, handCount: 0 })) ?? []
@@ -281,14 +254,9 @@ export class Cards {
       pack.position.y = TABLE_Y + .02 + index * .015
       data.push({ key: 'pack:' + index, kind: 'back', parent: this.scene, scale: .60, index, ...pack })
     }
-    const showResponses = match.phase !== 'select' && match.responses.length > 0
-    const crowded = match.responses.length > 4
-    const scenarioOffset = crowded ? -1.68 : -1.36
-    const scenarioPose = onTable(showResponses ? scenarioOffset : 0, -.64, yaw,.85)
-    scenarioPose.position.y += .251
     data.push({
-      ...match.scenario, key: 'scenario:' + match.roundId, kind: 'scenario', parent: this.scene,
-      scale: crowded ? .65 : showResponses ? .76 : .92, ...scenarioPose
+      ...match.scenario, key:'scenario:' + match.roundId, kind:'scenario', parent:this.scene,
+      ...scenarioPose(seat,match.responses.length)
     })
     if (match.phase === 'select') {
       for (let index = 0; index < match.submittedCount; index++) {
@@ -297,20 +265,12 @@ export class Cards {
         data.push({ key: 'submitted:' + index, kind: 'back', parent: this.scene, scale: .64, submitted: true, index, ...pose })
       }
     } else {
-      const cols = Math.min(4, match.responses.length)
       for (const [index,response] of match.responses.entries()) {
-        const itemsInRow = index >= 4 ? match.responses.length - 4 : cols
-        const col = index % 4
-        const twoRows = match.responses.length > 4
-        const frontRow = index >= 4
-        const depth = twoRows ? (frontRow ? .92 : -.12) : .23
-        const pose = onTable((col - (itemsInRow - 1)/2) * .60, depth, yaw,.76)
-        pose.position.y += twoRows ? (frontRow ? .178 : .50) : .21
-        data.push({ ...response, key: 'response:' + response.id, kind: 'response', parent: this.scene,
-          center: true, scale: twoRows ? .72 : .82, index, ...pose })
+        data.push({ ...response, key:'response:' + response.id, kind:'response', parent:this.scene,
+          center:true, index, ...responsePose(seat,match.responses.length,index) })
       }
     }
-    data.push(...this.handData(match.hand, match.phase !== 'select'))
+    data.push(...this.handData(match.hand,seat,match.phase))
     return data
   }
 
@@ -454,13 +414,14 @@ export class Cards {
     const ease = this.still ? 1 : 1 - Math.exp(-dt * 16)
     view.lift += (Number(selected) - view.lift) * ease
     const scenario = view.data.kind === 'scenario'
-    group.position.y += view.lift * (scenario ? .045 : view.data.hand ? .136 : .19)
-    if (view.data.hand) group.position.z += view.lift * .058
+    const dense = view.data.center && this.room?.match?.responses.length > 4
+    group.position.y += view.lift * (scenario ? .045 : view.data.hand ? .098 : dense ? .080 : .135)
+    if (view.data.hand) group.position.z += view.lift * .064
     const pulse = this.still || !view.pressedAt ? 0 : Math.max(0,1 - (time - view.pressedAt) / 260)
     const winner = !retired && view.data.winner
     view.winLift += (Number(Boolean(winner)) - view.winLift) * ease
     group.position.y += view.winLift * .075
-    group.scale.setScalar(base.scale * (1 + view.lift * (scenario ? .035 : .13) + pulse * .07 + view.winLift * .04))
+    group.scale.setScalar(base.scale * (1 + view.lift * (scenario ? .035 : dense ? .07 : .13) + pulse * .07 + view.winLift * .04))
     view.border.visible = Boolean(winner || view.lift > .12 || pulse)
     view.border.material = winner ? winnerMat : focusMat
     if (view.shadow) {

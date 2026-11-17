@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { openPlayer } from './players.js'
+import { handTarget,responseTarget } from './targets.js'
 
 const home = 'http://127.0.0.1:3097'
 const capture = process.env.OFFDECK_CAPTURE === '1'
@@ -67,8 +68,8 @@ test('three independent browser clients finish a production match using only phy
     if (round === 0) await snapshot('gameplay')
     // Select the middle physical card on each camera. The accessible list stays closed.
     for (const [index,page] of pages.entries()) {
-      const { width, height } = sizes[index]
-      await page.mouse.click(width * .5, height * .84)
+      const { x,y } = handTarget(sizes[index],index)
+      await page.mouse.click(x,y)
       if (index < 2) {
         await expect(page.getByText('Response locked in.')).toBeVisible()
         await expect(pages[(index + 1) % 3].locator('.responses')).toHaveCount(0)
@@ -79,9 +80,8 @@ test('three independent browser clients finish a production match using only phy
     if (capture && round === 0) {
       const own = await a.locator('.responses article').evaluateAll(cards =>
         cards.findIndex(card => card.textContent.includes('Your Card')))
-      const { width, height } = sizes[0]
-      const col = (own + 1) % 3
-      await a.mouse.move(width * .5 + (col - 1) * height * .219, height * .55)
+      const { x,y } = responseTarget(sizes[0],0,(own + 1) % 3)
+      await a.mouse.move(x,y)
       await expect(a.locator('#scene canvas')).toHaveCSS('cursor', 'pointer')
       await snapshot('voting')
     }
@@ -93,8 +93,8 @@ test('three independent browser clients finish a production match using only phy
       const expected = hands[index === 0 ? 1 : 0][3]
       const col = (await others.allTextContents()).indexOf(expected)
       expect(col).toBeGreaterThanOrEqual(0)
-      const { width, height } = sizes[index]
-      await page.mouse.click(width * .5 + (col - 1) * height * (index === 0 ? .219 : .194), height * .55)
+      const { x,y } = responseTarget(sizes[index],index,col)
+      await page.mouse.click(x,y)
       if (index < 2) await expect(page.getByText('Vote locked in.')).toBeVisible()
     }
 
