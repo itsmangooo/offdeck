@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { starterDecks } from '../server/decks.js'
+import { reviewHands } from '../scripts/review-cards.js'
 import { approvedDecks, cardWords, parseLibrary, readCardLibrary, validateLibrary } from '../server/card-library.js'
 
 const library = readCardLibrary()
@@ -39,7 +40,8 @@ test('invalid library records fail before a room can use them', () => {
     ...[
       { id: undefined }, { id: scenario[1].id }, { category: 'other' }, { type: 'response' },
       { status: 'archived' }, { tags: ['bad tag'] }, { tags: ['quiet','quiet'] },
-      { unfamiliar: true },
+      { unfamiliar: true }, { compatibility: { form: 'action' } },
+      { compatibility: { accepts: [] } }, { compatibility: { accepts: ['action', 'action'] } },
       { text: '' }, { text: ' ?' }, { text: 'A test?' }, { text: 'A\u202E test?' },
       { text: 'A'.repeat(120) + '?' }, { text: 'I saw __.' }, { text: '____ found ____.' },
       { text: scenario[1].text.toUpperCase().replaceAll("'", '’') }
@@ -60,6 +62,23 @@ test('draft and disabled cards can exist without leaking into play', () => {
   assert.ok(!decks.responses.some(card => edited.response.slice(0, 2).some(excluded => excluded.id === card.id)))
   assert.deepEqual(Object.keys(decks.responses[0]), ['id','text','category'])
   assert.throws(() => approvedDecks({ ...edited, scenario: [] }), /cannot fill/)
+})
+
+test('offline pairing samples cover each category and only use approved cards', () => {
+  const first = reviewHands(library, 'bench-031')
+  assert.deepEqual(first, reviewHands(library, 'bench-031'))
+  assert.notDeepEqual(first, reviewHands(library, 'bench-032'))
+  assert.equal(first.length, 12)
+  for (const sample of first) {
+    assert.equal(new Set(sample.hand.map(card => card.category)).size, 5)
+    assert.ok(sample.hand.some(card => card.category === sample.scenario.category))
+  }
+  const edited = structuredClone(library)
+  const hidden = first[0].hand[0].id
+  edited.response.find(card => card.id === hidden).status = 'disabled'
+  const without = reviewHands(edited, 'bench-031', { entirePool: true })
+  assert.ok(!without.some(({ hand }) => hand.some(card => card.id === hidden)))
+  assert.ok(without.some(({ hand }) => hand.some(card => !card.compatibility)))
 })
 
 test('near-identical phrasing is flagged for editorial review', () => {

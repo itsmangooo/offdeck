@@ -8,9 +8,10 @@ export const CARD_FILES = Object.freeze({ scenario: 'scenarios.json', response: 
 export const CARD_CATEGORIES = Object.freeze(['hookups', 'dating', 'expectations', 'dark', 'social', 'unhinged'])
 export const CARD_STATUSES = Object.freeze(['draft', 'approved', 'disabled'])
 export const CARD_TEXT_LIMIT = 120
+export const RESPONSE_FORMS = Object.freeze(['person', 'object', 'action', 'quote', 'admission', 'outcome'])
 
 const CARD_TYPES = Object.keys(CARD_FILES)
-const CARD_FIELDS = new Set(['id', 'type', 'category', 'text', 'status', 'tags'])
+const CARD_FIELDS = new Set(['id', 'type', 'category', 'text', 'status', 'tags', 'compatibility'])
 
 export class CardLibraryError extends Error {}
 
@@ -18,12 +19,21 @@ export function cardWords(text) {
   return text.normalize('NFKC').toLowerCase().replace(/['’]/gu, '').match(/[\p{L}\p{N}]+/gu) ?? []
 }
 
+function validCompatibility(metadata, type) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata) ||
+      Object.keys(metadata).length !== 1) return false
+  if (type === 'response') return RESPONSE_FORMS.includes(metadata.form)
+  const { accepts } = metadata
+  return Array.isArray(accepts) && accepts.length > 0 && new Set(accepts).size === accepts.length &&
+    accepts.every(form => RESPONSE_FORMS.includes(form))
+}
+
 function validateCard(card, type, index) {
   if (!card || typeof card !== 'object' || Array.isArray(card) ||
       Object.keys(card).some(field => !CARD_FIELDS.has(field))) {
     throw new CardLibraryError('Invalid record in ' + CARD_FILES[type] + ' at position ' + (index + 1))
   }
-  const { id, text, category, status, tags } = card
+  const { id, text, category, status, tags, compatibility } = card
   const idPattern = new RegExp('^' + type + '-(?:[0-9]{3,6}|[a-f0-9]{12})$')
   if (typeof id !== 'string' || !idPattern.test(id)) throw new CardLibraryError('Invalid ' + type + ' ID')
   if (card.type !== type) throw new CardLibraryError(id + ' has the wrong card type')
@@ -32,6 +42,9 @@ function validateCard(card, type, index) {
   if (tags !== undefined && (!Array.isArray(tags) || tags.length > 8 || new Set(tags).size !== tags.length ||
       tags.some(tag => typeof tag !== 'string' || !/^[a-z][a-z0-9-]{0,23}$/.test(tag)))) {
     throw new CardLibraryError(id + ' needs up to eight distinct lowercase tags')
+  }
+  if (compatibility !== undefined && !validCompatibility(compatibility, type)) {
+    throw new CardLibraryError(id + ' has invalid compatibility metadata')
   }
   if (typeof text !== 'string' || text.length > CARD_TEXT_LIMIT || text !== text.trim() ||
       text !== text.normalize('NFC') || /[^\x20-\x7e’‘“”—–…\p{Script=Latin}]/u.test(text)) {
