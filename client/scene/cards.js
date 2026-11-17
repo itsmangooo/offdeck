@@ -75,7 +75,7 @@ function designBack() {
   })
 }
 
-function designFace(content, type, own) {
+function designFace({ text: content, kind: type, own, author, points, winner }) {
   const scenario = type === 'scenario'
   return texture(512,720,(ctx,w,h) => {
     ctx.fillStyle = scenario ? '#161d1a' : '#fbf6e8'
@@ -91,18 +91,28 @@ function designFace(content, type, own) {
     ctx.letterSpacing = '0px'
     ctx.fillStyle = scenario ? '#fff6e4' : '#17251e'
     let font = content.length < 40 ? 58 : 53
+    const reserved = author === undefined ? 222 : 270
     let lines
     do {
       ctx.font = '700 ' + font + 'px system-ui'
       lines = wrap(ctx, content, w - 78)
-      if (lines.length * font * 1.20 < h - 222 || font === 36) break
+      if (lines.length * font * 1.20 < h - reserved || font === 36) break
       font--
     } while (font >= 36)
     for (let index = 0; index < lines.length; index++) ctx.fillText(lines[index], 38, 159 + index * font * 1.20, w - 76)
     ctx.fillStyle = scenario ? '#a9be9a' : '#3e624b'
     ctx.font = '800 19px system-ui'
     ctx.letterSpacing = '4px'
-    ctx.fillText(own ? 'YOUR CARD' : 'OFFDECK', 39, h - 45)
+    if (author !== undefined) {
+      ctx.fillStyle = winner ? '#553a16' : '#3e624b'
+      ctx.letterSpacing = '0px'
+      ctx.font = '700 32px system-ui'
+      ctx.fillText(author,39,h - 88,w - 78)
+      ctx.font = '650 26px system-ui'
+      ctx.fillText(points + (points === 1 ? ' vote' : ' votes'),39,h - 47)
+    } else {
+      ctx.fillText(own ? 'YOUR CARD' : 'OFFDECK', 39, h - 45)
+    }
     ctx.textAlign = 'right'
     ctx.fillText('♦', w - 37, h - 45)
   })
@@ -136,7 +146,7 @@ export class Cards {
     group.name = data.kind + ' card'
     const edge = data.kind === 'scenario' || !data.text ? darkEdge : paperEdge
     mesh(group, pad, edge).receiveShadow = true
-    const front = data.text ? frontMat(designFace(data.text, data.kind, data.own)) : this.back
+    const front = data.text ? frontMat(designFace(data)) : this.back
     const surface = mesh(group, face, front, 0,0,.012)
     const rear = mesh(group, face, this.back, 0,0,-.012)
     rear.rotation.y = Math.PI
@@ -337,6 +347,11 @@ export class Cards {
         this.move(view,target,start,duration,delay,arc)
       } else if (changed(view.target,target)) {
         this.move(view,target)
+      }
+      if (data.center && view.data && view.data.author !== data.author && data.author !== undefined) {
+        view.front.map.dispose()
+        view.front.map = designFace(data)
+        view.front.needsUpdate = true
       }
       view.data = data
     }

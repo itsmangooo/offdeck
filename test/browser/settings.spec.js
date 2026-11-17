@@ -1,0 +1,57 @@
+import { test, expect } from '@playwright/test'
+import { openPlayer } from './players.js'
+
+test('settings persist, nickname updates live, graphics resize and mute controls real audio', async ({ browser }, info) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' })
+  await context.addInitScript(() => {
+    window.playedSources = 0
+    const original = AudioBufferSourceNode.prototype.start
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      window.playedSources++
+      return original.apply(this,args)
+    }
+  })
+  const a = await context.newPage()
+  await a.goto('http://127.0.0.1:3097')
+  await a.getByLabel('Nickname').fill('Maya')
+  await a.getByRole('button', { name: 'Continue' }).click()
+  await a.getByRole('button', { name: 'Create Room' }).click()
+  await a.getByRole('dialog').getByRole('button', { name: 'Create Room' }).click()
+  const invitation = await a.getByLabel('Invitation link').inputValue()
+  const canvas = a.locator('#scene canvas')
+  await expect(canvas).toBeVisible()
+  const originalWidth = Number(await canvas.getAttribute('width'))
+  await a.getByRole('button', { name: 'Settings' }).click()
+  await a.getByLabel('Nickname').fill('Rae')
+  await a.locator('#opt-master').fill('32')
+  await a.locator('#opt-effects').fill('61')
+  await a.getByLabel('Graphics quality').selectOption('Low')
+  await a.locator('#opt-sensitivity').fill('44')
+  await expect(a.getByLabel('Reduced motion')).toBeChecked()
+  await a.screenshot({ path: info.outputPath('settings.png') })
+  await a.getByRole('button', { name: 'Save Settings' }).click()
+  await expect(a.getByRole('listitem').filter({ hasText: 'Rae (you)' })).toBeVisible()
+  await expect.poll(async () => Number(await canvas.getAttribute('width'))).toBeLessThan(originalWidth)
+  await a.reload()
+  await a.getByRole('button', { name: 'Settings' }).click()
+  await expect(a.getByLabel('Nickname')).toHaveValue('Rae')
+  await expect(a.locator('#opt-master')).toHaveValue('32')
+  await expect(a.locator('#opt-effects')).toHaveValue('61')
+  await expect(a.getByLabel('Graphics quality')).toHaveValue('Low')
+  await expect(a.locator('#opt-sensitivity')).toHaveValue('44')
+  await expect(a.getByLabel('Reduced motion')).toBeChecked()
+  await a.getByRole('button', { name: 'Close' }).click()
+  const b = await openPlayer(browser, 'Jules', invitation)
+  const c = await openPlayer(browser, 'Sam', invitation)
+  await a.getByRole('button', { name: 'Start Game' }).click()
+  await expect.poll(() => a.evaluate(() => window.playedSources)).toBeGreaterThan(0)
+  await a.getByRole('button', { name: 'Settings' }).click()
+  await a.getByLabel('Mute sound').check()
+  await a.getByRole('button', { name: 'Save Settings' }).click()
+  const played = await a.evaluate(() => window.playedSources)
+  await a.locator('.table-controls summary').click()
+  await a.locator('.hand button').first().click()
+  await expect(a.getByText('Response locked in.')).toBeVisible()
+  expect(await a.evaluate(() => window.playedSources)).toBe(played)
+  await Promise.all([context,b.context,c.context].map(client => client.close()))
+})

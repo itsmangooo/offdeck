@@ -1,8 +1,12 @@
 import { io } from 'socket.io-client'
 import { DEFAULT_CONFIG, ROOM_ID, errors, nickname } from '../shared/protocol.js'
-import { readNickname, saveNickname } from './preferences.js'
+import { readNickname, saveNickname, readSettings, saveSettings } from './preferences.js'
 import { button, escapeHtml } from './ui.js'
 import { gameMarkup } from './game-ui.js'
+import { TableAudio } from './audio.js'
+import { settingsMarkup } from './settings-ui.js'
+import { icon } from './icons.js'
+import '@fontsource-variable/geist'
 import './style.css'
 
 const app = document.querySelector('#app')
@@ -14,9 +18,16 @@ let modalMarkup
 const socket = io({ transports: ['websocket'] })
 const storage = window.localStorage
 let name = readNickname(storage)
+let settings = readSettings(storage, matchMedia('(prefers-reduced-motion: reduce)').matches)
+const audio = new TableAudio()
+audio.configure(settings)
+for (const event of ['pointerdown','keydown']) {
+  document.addEventListener(event, input => { if (input.isTrusted) audio.unlock() }, { capture: true })
+}
 let room = null
 let receivedAt = 0
 let panel = null
+let opener = null
 let pending = false
 let messageTimer
 let invite = readInvite()
@@ -24,10 +35,15 @@ let publicOrigin = location.origin
 let scene
 const canvasArea = document.querySelector('#scene')
 document.body.classList.add('loading-scene')
+document.body.classList.toggle('reduced-motion',settings.reduced)
 
 import('./scene/index.js').then(({ TableScene }) => {
   scene = new TableScene(canvasArea)
+  scene.configure(settings)
   scene.sync(room)
+  canvasArea.addEventListener('cardhover', event => {
+    if (event.detail && !panel) audio.play('hover')
+  })
   canvasArea.addEventListener('cardaction', event => {
     if (!panel) playCard(event.detail.action, event.detail.id)
   })
@@ -98,8 +114,11 @@ async function request(event, payload = {}, complete) {
   render()
   try {
     const result = await socket.timeout(5000).emitWithAck(event, payload)
-    if (result.ok) complete?.(result)
-    else feedback(result.code)
+    if (result.ok) {
+      if (event === 'match:submit') audio.play('submit')
+      if (event === 'match:vote') audio.play('vote')
+      complete?.(result)
+    } else feedback(result.code)
     return result
   } catch {
     feedback('UNAVAILABLE')
@@ -153,6 +172,12 @@ socket.on('connect', () => {
 socket.on('connect_error', () => { feedback('UNAVAILABLE'); render() })
 socket.on('disconnect', () => render())
 socket.on('room:state', state => {
+  const previous = room?.match
+  const incoming = state.match
+  if (incoming && (incoming.phase !== previous?.phase || incoming.roundId !== previous?.roundId)) {
+    const cue = { select: 'deal', reveal: 'flip', results: 'results', finished: 'finished' }[incoming.phase]
+    if (cue) audio.play(cue)
+  }
   room = state
   receivedAt = performance.now()
   render()
@@ -173,14 +198,19 @@ function nameField() {
 
 function menu() {
   return `<section class="menu panel">
+    <div class="menu-mark" aria-hidden="true">♦</div>
     <h1>OFFDECK<span>.</span></h1>
-    <p>Read the room. Play your best card.</p>
+    <p>A party card game for 3–8 players.</p>
     <nav aria-label="Main menu">
-      ${button('Play', 'play', { primary: true })}
-      ${button('Create Room', 'create')}
-      ${button('Join Room', 'join')}
-      ${button('How to Play', 'help')}
-      ${button('Settings', 'settings')}
+      ${button('Play', 'play', { primary: true, glyph: 'play', className: 'menu-play' })}
+      <div class="menu-rooms">
+        ${button('Create Room', 'create', { glyph: 'cards' })}
+        ${button('Join Room', 'join', { glyph: 'door' })}
+      </div>
+      <div class="menu-links">
+        ${button('How to Play', 'help', { glyph: 'question' })}
+        ${button('Settings', 'settings', { glyph: 'gear' })}
+      </div>
     </nav>
   </section>`
 }
@@ -190,33 +220,41 @@ function lobby() {
   const connected = room.players.filter(player => player.connected).length
   const link = publicOrigin + '/sid/' + room.id + '/'
   return `<section class="lobby panel">
-    <header><h1>Room lobby</h1><span>${room.players.filter(player => player.connected).length}/${room.config.capacity} connected</span></header>
+    <header><h1>Room lobby</h1><span class="capacity">${icon('users')} ${connected}/${room.config.capacity} connected</span></header>
     <ul aria-label="Players">${room.players.map(player => `<li>
-      <span>${escapeHtml(player.name)}${player.id === room.selfId ? ' (you)' : ''}</span>
-      <small>${player.id === room.hostId ? 'Host · ' : ''}${player.connected ? (player.ready ? 'Ready' : 'Seated') : 'Reconnecting'}</small>
+      <span class="lobby-player"><i class="player-dot ${player.connected ? 'online' : ''}" aria-hidden="true"></i>${escapeHtml(player.name)}${player.id === room.selfId ? ' (you)' : ''}</span>
+      <small class="${player.ready ? 'ready' : ''}">${player.id === room.hostId ? 'Host · ' : ''}${player.connected ? (player.ready ? 'Ready' : 'Seated') : 'Reconnecting'}</small>
     </li>`).join('')}</ul>
-    <label>Invitation link<input id="invitation" readonly value="${escapeHtml(link)}"></label>
+    <div class="invitation">
+      <label>Invitation link<input id="invitation" readonly value="${escapeHtml(link)}"></label>
+      ${button('Copy Link', 'copy', { glyph: 'copy' })}
+    </div>
+    ${room.hostId === room.selfId && connected < 3 ? '<p class="lobby-status">Invite at least three players to start.</p>' : ''}
     <div class="actions">
-      ${room.hostId === room.selfId ? button('Start Game', 'start', { primary: true, disabled: pending || !socket.connected || connected < 3 }) : ''}
-      ${button('Copy Link', 'copy')}
-      ${button(self?.ready ? 'Unready' : 'Ready', 'ready', { primary: true, disabled: pending || !socket.connected })}
-      ${button('Settings', 'settings')}
-      ${button('Leave Room', 'leave', { disabled: pending })}
+      ${room.hostId === room.selfId ? button('Start Game', 'start', { primary: true, glyph: 'play', disabled: pending || !socket.connected || connected < 3 }) : ''}
+      ${button(self?.ready ? 'Unready' : 'Ready', 'ready', { glyph: 'check', primary: room.hostId !== room.selfId, disabled: pending || !socket.connected })}
+      ${button('Settings', 'settings', { glyph: 'gear' })}
+      ${button('Leave Room', 'leave', { glyph: 'signOut', disabled: pending })}
     </div>
   </section>`
 }
 
 function dialog(title, content, close = true) {
   return `<div class="shade"><section class="panel dialog" role="dialog" aria-modal="true" aria-label="${title}">
-    <header><h2>${title}</h2>${close ? button('Close', 'close') : ''}</header>${content}
+    <header><h2>${title}</h2>${close ? button('Close', 'close', { glyph: 'close', className: 'quiet' }) : ''}</header>${content}
   </section></div>`
 }
 
 function overlay() {
   const submit = (label, disabled = pending) => `<button class="primary" ${disabled ? 'disabled' : ''}>${label}</button>`
   if (!name) return dialog('Welcome to OFFDECK', `<p>Choose your nickname.</p><form data-form="nickname">${nameField()}${submit('Continue', false)}</form>`, false)
-  if (panel === 'settings') return dialog('Settings', `<form data-form="nickname">${nameField()}${submit('Save Settings')}</form>`)
-  if (panel === 'help') return dialog('How to Play', '<p>Invite 3–8 players. Play one response to each scenario, then vote for another player’s anonymous card. Each vote received earns one point. Play continues until the scenario deck is empty.</p>')
+  if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending))
+  if (panel === 'help') return dialog('How to Play', `<ol class="instructions">
+    <li>Open a room and invite 3–8 players. The host starts the match.</li>
+    <li>Read the scenario. Hover over a response in your seven-card hand to inspect it, then click to lock it in.</li>
+    <li>After the cards flip, click another player’s anonymous response to vote. Each vote received earns one point.</li>
+    <li>Results reveal the authors. The next scenario starts automatically. The highest score wins when the deck is empty, and ties stand.</li>
+  </ol><p class="help-note">Open Card list for keyboard controls. Move the mouse to look around the table.</p>`)
   if (panel === 'play') return dialog('Play', `<div class="actions">${button('Create Room', 'create', { primary: true })}${button('Join Room', 'join')}</div>`)
   if (panel === 'create') return dialog('Create Room', `<form data-form="create">
     <label>Seats<input name="capacity" type="number" min="3" max="8" value="${DEFAULT_CONFIG.capacity}" required></label>
@@ -252,20 +290,36 @@ function render() {
     return
   }
   const openForm = modal.querySelector('.dialog form')
-  const prior = openForm && !pending ? [...new FormData(openForm)] : []
+  const prior = openForm ? [...openForm.elements].filter(control => control.name)
+    .map(control => ({ key: control.name, value: control.value, checked: control.checked })) : []
   const formType = openForm?.dataset.form
+  const opening = !modalMarkup && dialogHtml
+  const closing = modalMarkup && !dialogHtml
   modal.innerHTML = dialogHtml
   modalMarkup = dialogHtml
+  view.inert = Boolean(dialogHtml)
   const newForm = modal.querySelector('.dialog form')
   if (newForm?.dataset.form === formType) {
-    for (const [key, value] of prior) {
+    for (const { key, value, checked } of prior) {
       const input = newForm?.elements.namedItem(key)
-      if (input) input.value = value
+      if (!input) continue
+      if (input.type === 'checkbox') input.checked = checked
+      else input.value = value
+      if (input.type === 'range') {
+        const output = input.previousElementSibling.querySelector('output')
+        if (output) output.value = value + input.dataset.unit
+      }
     }
   }
   if (field && focused !== document.body) {
-    const replacement = [...modal.querySelectorAll('input')].find(input => input.name === field)
+    const replacement = [...modal.querySelectorAll('input,select')].find(input => input.name === field)
     replacement?.focus()
+  } else if (opening) {
+    (modal.querySelector('input, select') || modal.querySelector('button'))?.focus()
+  }
+  if (closing && opener) {
+    view.querySelector('[data-action="' + opener + '"]')?.focus()
+    opener = null
   }
   clock()
 }
@@ -285,7 +339,10 @@ setInterval(clock, 150)
 function playCard(action, id) {
   if (!room?.match) return
   const roundId = room.match.roundId
-  if (action === 'submit') return request('match:submit', { cardId: id, roundId })
+  if (action === 'submit') {
+    if (!pending && socket.connected) audio.play('select')
+    return request('match:submit', { cardId: id, roundId })
+  }
   if (action === 'vote') return request('match:vote', { responseId: id, roundId })
 }
 
@@ -293,7 +350,10 @@ app.addEventListener('click', async event => {
   const control = event.target.closest('[data-action]')
   const action = control?.dataset.action
   if (!action) return
-  if (['play', 'create', 'join', 'help', 'settings'].includes(action)) panel = action
+  if (['play', 'create', 'join', 'help', 'settings'].includes(action)) {
+    if (view.contains(control)) opener = action
+    panel = action
+  }
   if (action === 'close') {
     if (!room && invite) leave()
     panel = null
@@ -320,6 +380,27 @@ app.addEventListener('click', async event => {
   render()
 })
 
+modal.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && name) {
+    modal.querySelector('[data-action="close"]')?.click()
+  }
+  if (event.key !== 'Tab') return
+  const controls = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled)')]
+  const edge = event.shiftKey ? controls[0] : controls.at(-1)
+  if (document.activeElement === edge) {
+    event.preventDefault()
+    const next = event.shiftKey ? controls.at(-1) : controls[0]
+    next?.focus()
+  }
+})
+
+modal.addEventListener('input', event => {
+  const input = event.target
+  if (input.type !== 'range') return
+  const output = input.previousElementSibling?.querySelector('output')
+  if (output) output.value = input.value + input.dataset.unit
+})
+
 app.addEventListener('submit', async event => {
   event.preventDefault()
   const fields = Object.fromEntries(new FormData(event.target))
@@ -336,6 +417,26 @@ app.addEventListener('submit', async event => {
       persist()
       if (invite) enter()
     }
+  }
+  if (event.target.dataset.form === 'settings') {
+    const updated = nickname(fields.name)
+    if (!updated) return feedback('BAD_NAME')
+    const next = {
+      master: Number(fields.master), effects: Number(fields.effects), muted: fields.muted === 'on',
+      quality: fields.quality, reduced: fields.reduced === 'on', sensitivity: Number(fields.sensitivity)
+    }
+    const apply = () => {
+      if (updated !== name) name = saveNickname(storage,updated)
+      settings = next
+      saveSettings(storage,settings)
+      audio.configure(settings)
+      document.body.classList.toggle('reduced-motion',settings.reduced)
+      scene?.configure(settings)
+      panel = null
+      render()
+    }
+    if (room && updated !== name) await request('player:name', { name: updated }, apply)
+    else apply()
   }
   if (event.target.dataset.form === 'create') {
     const config = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, Number(value)]))

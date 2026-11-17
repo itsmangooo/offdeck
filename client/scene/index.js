@@ -31,6 +31,8 @@ export class TableScene {
     this.camera.lookAt(this.target)
     this.still = matchMedia('(prefers-reduced-motion: reduce)').matches
     this.cards.still = this.still
+    this.sensitivity = .65
+    this.quality = 'Medium'
     this.ray = new T.Raycaster()
     this.renderFrame = this.renderFrame.bind(this)
     this.lastTime = performance.now()
@@ -76,6 +78,22 @@ export class TableScene {
     this.renderer.setAnimationLoop(this.renderFrame)
   }
 
+  configure(settings) {
+    this.still = settings.reduced
+    this.cards.still = this.still
+    this.sensitivity = settings.sensitivity / 100
+    this.quality = settings.quality
+    const resolution = settings.quality === 'High' ? 2048 : 1024
+    this.renderer.shadowMap.enabled = settings.quality !== 'Low'
+    if (this.key.shadow.mapSize.x !== resolution) {
+      this.key.shadow.map?.dispose()
+      this.key.shadow.map = null
+      this.key.shadow.mapSize.set(resolution,resolution)
+    }
+    this.key.shadow.needsUpdate = true
+    this.resize()
+  }
+
   point(event) {
     const rect = this.canvas.getBoundingClientRect()
     this.pointer.set((event.clientX - rect.left) / rect.width * 2 - 1,
@@ -99,7 +117,8 @@ export class TableScene {
   resize() {
     const width = this.container.clientWidth
     const height = this.container.clientHeight
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35))
+    const ratio = { Low: .72, Medium: 1, High: Math.min(1.8, Math.max(1.25,devicePixelRatio)) }[this.quality]
+    this.renderer.setPixelRatio(ratio)
     this.renderer.setSize(width,height)
     this.camera.aspect = width / Math.max(1,height)
     this.camera.updateProjectionMatrix()
@@ -136,10 +155,11 @@ export class TableScene {
     if (this.seat) {
       const { x,z,yaw } = this.seat
       const focused = Boolean(this.cards.hovered)
-      const drift = this.still ? 0 : this.pointer.x * (focused ? .32 : 1.07)
+      const strength = this.sensitivity * 1.54
+      const drift = this.still ? 0 : this.pointer.x * strength * (focused ? .32 : 1.07)
       const emphasis = this.room.match?.phase === 'results' ? .06 : 0
       position.set(x + Math.sin(yaw) * .46, 2.79, z + Math.cos(yaw) * .46)
-      aim.set(Math.cos(yaw) * drift, 1.47 + (this.still ? 0 : this.pointer.y * .18),
+      aim.set(Math.cos(yaw) * drift, 1.47 + (this.still ? 0 : this.pointer.y * .18 * strength),
         -Math.sin(yaw) * drift)
       aim.x -= Math.sin(yaw) * emphasis
       aim.z -= Math.cos(yaw) * emphasis

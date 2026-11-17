@@ -19,3 +19,27 @@ export function saveNickname(storage, name, now = Date.now()) {
   }
   return normalized
 }
+
+const level = (value, fallback) => typeof value === 'number' && Number.isFinite(value) ?
+  Math.min(100, Math.max(0, Math.round(value))) : fallback
+
+export function readSettings(storage, reduced = false) {
+  let data
+  try {
+    data = JSON.parse(storage.getItem('offdeck.settings'))
+  } catch {}
+  return {
+    master: level(data?.master,75),
+    effects: level(data?.effects,70),
+    muted: data?.muted === true,
+    quality: ['Low','Medium','High'].includes(data?.quality) ? data.quality : 'Medium',
+    sensitivity: level(data?.sensitivity,65),
+    reduced: typeof data?.reduced === 'boolean' ? data.reduced : reduced
+  }
+}
+
+export function saveSettings(storage, settings) {
+  try {
+    storage.setItem('offdeck.settings', JSON.stringify(settings))
+  } catch {}
+}
