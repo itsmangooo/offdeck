@@ -63,3 +63,37 @@ test('the practice table teaches the full round without emitting multiplayer act
     await context.close()
   }
 })
+
+test('rules and practice controls fit small screens and common desktop sizes', async ({ browser }) => {
+  const { page, context } = await openPlayer(browser, 'Maya', undefined, { reducedMotion: 'no-preference' })
+  try {
+    await expect(page.locator('body.has-scene')).toHaveCount(1)
+    await page.setViewportSize({ width: 390, height: 760 })
+    await page.getByRole('button', { name: 'Game Rules' }).click()
+    const rules = page.getByRole('dialog', { name: 'Game Rules' })
+    await rules.getByText('Timers, disconnects, and rematches').click()
+    await expect(rules.getByText('Timers and late submissions', { exact: true })).toBeInViewport()
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: 'Replay Tutorial' }).click()
+    const guide = page.getByRole('dialog', { name: 'How to Play' })
+    const next = guide.getByRole('button', { name: 'Next', exact: true })
+    await next.click()
+    await next.click()
+    await guide.getByRole('button', { name: 'Inspect scenario' }).click()
+    await page.getByRole('button', { name: 'Close inspection' }).click()
+    await next.click()
+    for (const [width, height] of [[390,760], [1280,720], [1440,900], [1920,1080]]) {
+      await page.setViewportSize({ width, height })
+      await expect(guide.getByRole('heading')).toBeInViewport()
+      await expect(next).toBeInViewport()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
+    }
+    await guide.getByRole('button', { name: 'A raccoon with a clipboard' }).click()
+    await next.click()
+    await guide.getByRole('button', { name: 'Three ducks in a trench coat' }).click()
+    await next.click()
+    await expect(guide.locator('[data-tutorial-score]')).toHaveText('1 +1')
+  } finally {
+    await context.close()
+  }
+})

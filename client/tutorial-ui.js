@@ -7,13 +7,13 @@ function cardChoices(cards, action, complete) {
     data-card="${card.id}" ${(card.own || complete) ? 'disabled' : ''}>${escapeHtml(card.text)}${card.own ? ' <small>Your card</small>' : ''}</button>`).join('')}</div>`
 }
 
-function practice(tutorial) {
+function practice(tutorial, hasScene) {
   const { step, table, submitted, vote } = tutorial
-  if (step === 1) return `<p class="tutorial-instruction">Hover over a card to lift it, or preview one here.</p>
+  if (step === 1) return `<p class="tutorial-instruction">${hasScene ? 'Hover over a card to lift it, or preview one here.' : 'Preview one of your response cards.'}</p>
     ${button('Preview a card', 'tutorial-preview', { glyph: 'cards' })}
     <p id="tutorial-card-preview" class="tutorial-card-preview" aria-live="polite" hidden></p>`
   if (step === 2) return `<blockquote>${escapeHtml(table.match.scenario.text)}</blockquote>
-    ${button('Inspect scenario', 'tutorial-inspect', { glyph: 'cards' })}`
+    ${hasScene ? button('Inspect scenario', 'tutorial-inspect', { glyph: 'cards' }) : ''}`
   if (step === 3) return submitted
     ? '<p class="tutorial-success" role="status">Response locked in. Your card is face down on the table.</p>'
     : cardChoices(table.match.hand, 'tutorial-submit', false)
@@ -25,7 +25,7 @@ function practice(tutorial) {
   return ''
 }
 
-export function tutorialMarkup(tutorial) {
+export function tutorialMarkup(tutorial, hasScene) {
   const { step } = tutorial
   const [title, description] = tutorialSteps[step]
   const last = step === tutorialSteps.length - 1
@@ -34,7 +34,7 @@ export function tutorialMarkup(tutorial) {
     <progress class="tutorial-track" value="${step + 1}" max="${tutorialSteps.length}" aria-label="Tutorial progress"></progress>
     <h2 data-tutorial-title tabindex="-1">${title}</h2>
     <p class="tutorial-description">${description}</p>
-    ${practice(tutorial)}
+    ${practice(tutorial, hasScene)}
     <div class="tutorial-actions">
       ${button('Back', 'tutorial-back', { disabled: step === 0 })}
       ${button(last ? 'Play' : 'Next', last ? 'tutorial-play' : 'tutorial-next', { primary: true })}

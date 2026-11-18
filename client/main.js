@@ -339,7 +339,7 @@ function overlay() {
       'Choose a nickname, then try a quick practice round or skip straight to the game.'
     return dialog('Welcome to OFFDECK', `<p>${message}</p><form data-form="nickname">${nameField()}${actions}</form>`, false)
   }
-  if (tutorial) return tutorialMarkup(tutorial)
+  if (tutorial) return tutorialMarkup(tutorial, document.body.classList.contains('has-scene'))
   if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending, !room))
   if (panel === 'leave') return dialog('Leave match?', `<p>Leaving frees your seat and may end the match for the remaining players.</p><div class="actions">${button('Stay at Table','close',{primary:true})}${button('Leave Room','leave-confirm',{glyph:'signOut',disabled:pending})}</div>`)
   if (panel === 'rules') return dialog('Game Rules', rulesMarkup(), true, 'rules-dialog')
