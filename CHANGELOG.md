@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 — Game Rules & Interactive Tutorial
+
+- Added Game Rules to the main menu, lobby, and match, including expandable explanations of timers, disconnects, and rematches.
+- Added a seven-step practice table for inspecting cards, submitting a response, voting, and scoring.
+- Added a first-visit tutorial offer that remembers completion or dismissal. Players can replay from the main menu or Settings outside a room.
+- Added phase-specific gameplay hints with a Settings toggle.
+- Verified the onboarding and match flows in Chrome and added screenshots of the rules and practice table.
+
 ## 0.3.1 — Content Overhaul
 
 - Audited all 1,000 cards and rewrote or replaced more than 750. The collection remains 250 approved scenarios and 750 approved responses.

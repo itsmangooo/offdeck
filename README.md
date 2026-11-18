@@ -4,19 +4,23 @@ OFFDECK is a first-person 3D party card game for **3–8 adults** in a desktop b
 
 **18+ content warning.** OFFDECK contains explicit language, sexual humor, dark comedy, and mature themes. First-time visitors confirm they are 18 or older. The browser remembers this self-declaration locally.
 
-The v0.3.1 content overhaul ships **250 approved scenarios** and **750 approved responses**. It replaces or rewrites more than 750 cards, with shorter punchlines and prompts that include overheard lines, messages, confessions and fill-ins. **733 responses** are two to twelve words.
+**New in v0.3.2.** Learn at your own pace with the interactive practice table, open **Game Rules** from the menu, lobby, or match, and turn gameplay hints on or off in **Settings**.
+
+The deck includes **250 approved scenarios** and **750 approved responses**, with short punchlines and prompts that include overheard lines, messages, confessions, and fill-ins.
 
 Each standard match draws **20 unique scenarios**. The server balances scenario categories and favors cards the room hasn't seen recently. It shuffles responses, deals them privately and recycles them when the draw pile runs out. Recent card history stays with the room across rematches.
 
 ## Screenshots
 
-Captured from the production build with three connected browser clients using a three-scenario test deck.
+Match screenshots use three connected browser clients and a three-scenario test deck. Practice screenshots use the built-in sample round.
 
 ![OFFDECK main menu and poker room](docs/screenshots/main-menu.png)
 ![First-person gameplay with a five-card hand](docs/screenshots/gameplay.png)
 ![Anonymous responses in the voting phase](docs/screenshots/voting.png)
 
 [18+ confirmation](docs/screenshots/age-confirmation.png) · [Multiplayer lobby](docs/screenshots/lobby.png) · [Card inspection](docs/screenshots/card-inspection.png) · [Round results](docs/screenshots/round-results.png) · [Final leaderboard](docs/screenshots/final-results.png)
+
+[Game Rules](docs/screenshots/game-rules.png) · Practice table: [inspect a scenario](docs/screenshots/tutorial-scenario.png), [pick a response](docs/screenshots/tutorial-response.png), [vote anonymously](docs/screenshots/tutorial-voting.png)
 
 ## Quick start
 
@@ -35,7 +39,7 @@ For friends on your LAN, set `HOST=0.0.0.0` in a local `.env` and have everyone 
 
 ## How to play
 
-1. Confirm you are 18 or older and choose a nickname. The browser remembers your nickname for 365 days. Change it in **Settings**.
+1. Confirm you are 18 or older and choose a nickname. Select **Start Tutorial** to try a practice round or **Skip Tutorial** to go straight to the game. If you opened an invitation, you take your seat after leaving practice. Your browser remembers whether you finished or skipped the tutorial.
 2. Create a room and share its invitation link, or open an invitation. The host can start when at least three players are connected.
 3. Click the scenario card for a close-up. Press **Esc** or choose **Close inspection** to return to the table. Hover over a response to read it and click to lock in one of your five cards.
 4. Responses are revealed anonymously when everyone submits or the timer expires. If you submitted, cast one private vote for another player's card. **Vote cast** confirms your choice privately. Vote totals and response authors are revealed in the results.
@@ -43,6 +47,8 @@ For friends on your LAN, set `HOST=0.0.0.0` in a local `.env` and have everyone 
 6. Rounds advance automatically until the scenario deck runs out. The final leaderboard shows the overall winner or tied winners. The host can start a fresh match in the same room.
 
 Move the mouse to look around from your seat. Open **Card list** in the upper-left HUD for keyboard submission, voting and scenario inspection. Reduced motion holds the camera steady and settles cards directly into place. Graphics quality adjusts resolution and shadows. A newcomer joining an active match spectates and can play in the next one.
+
+Open **How to Play** or **Replay Tutorial** from the main menu, or choose **Replay Tutorial** in **Settings** while outside a room. **Game Rules** explains timings, disconnects, and rematches. The match clock keeps running while you read. Turn off **Gameplay hints** in **Settings** whenever you no longer need them. Your browser remembers your nickname for 365 days, and you can change it in **Settings**.
 
 ## Card collection
 
@@ -89,7 +95,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-The Node suite verifies content, editor writes and a full 20-scenario match over eight WebSocket connections. Playwright tests the editor, renders the approved collection and completes matches with independent browser clients. It also checks both rematch paths, five- and eight-client sessions, all three desktop sizes, reconnects and host migration. See the [v0.3.1 verification record](docs/V0.3.1.md).
+The Node suite verifies content, editor writes and a full 20-scenario match over eight WebSocket connections. Playwright checks the rules, tutorial, saved onboarding choice, invitation handling and gameplay hints alongside full matches, rematches, reconnects and host migration. The rules and practice controls are checked at three desktop sizes and a narrow 390-pixel viewport. See the [v0.3.1 verification record](docs/V0.3.1.md) for the deck overhaul.
 
 To run the browser suite against the production bundle, run `npm run build` and then use the command for your shell.
 
