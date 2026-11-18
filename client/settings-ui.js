@@ -21,6 +21,7 @@ export function settingsMarkup(settings, nameField, pending, canReplay) {
       </label>
       ${slider('Camera sensitivity','sensitivity',settings.sensitivity)}
       <label class="check"><input type="checkbox" name="reduced" ${settings.reduced ? 'checked' : ''}> Reduced motion</label>
+      <label class="check"><input type="checkbox" name="hints" ${settings.hints ? 'checked' : ''}> Gameplay hints</label>
     </fieldset>
     <button type="button" data-action="tutorial" ${canReplay && !pending ? '' : 'disabled'}>${icon('cards')} Replay Tutorial</button>
     <button class="primary" ${pending ? 'disabled' : ''}>${icon('check')} Save Settings</button>

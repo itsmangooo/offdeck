@@ -363,7 +363,7 @@ function render() {
   const field = focused?.name
   // Leave an open form in place across unrelated room updates.
   const kind = room?.match ? room.match.phase === 'finished' ? 'final' : 'match' : room ? 'lobby' : 'menu'
-  const base = room?.match ? gameMarkup(room,pending || !socket.connected) : room ? lobby() : menu()
+  const base = room?.match ? gameMarkup(room,pending || !socket.connected,settings.hints) : room ? lobby() : menu()
   const loading = document.body.classList.contains('loading-scene') ? '<div class="render-loading" role="status">Opening the card room…</div>' : ''
   const gameHtml = `${base}${loading}${!socket.connected ? `<div class="connection" role="status">${room ? 'Reconnecting to the room…' : 'Connecting to OFFDECK…'}</div>` : ''}`
   const html = tutorial ? '' : age === 'confirmed' ? gameHtml : age === 'declined' ?
@@ -625,7 +625,8 @@ app.addEventListener('submit', async event => {
     if (!updated) return feedback('BAD_NAME')
     const next = {
       master: Number(fields.master), effects: Number(fields.effects), muted: fields.muted === 'on',
-      quality: fields.quality, reduced: fields.reduced === 'on', sensitivity: Number(fields.sensitivity)
+      quality: fields.quality, reduced: fields.reduced === 'on', sensitivity: Number(fields.sensitivity),
+      hints: fields.hints === 'on'
     }
     const apply = () => {
       if (updated !== name) name = saveNickname(storage,updated)

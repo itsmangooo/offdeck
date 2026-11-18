@@ -64,6 +64,7 @@ export function readSettings(storage, reduced = false) {
     master: level(data?.master,75),
     effects: level(data?.effects,70),
     muted: data?.muted === true,
+    hints: data?.hints !== false,
     quality: ['Low','Medium','High'].includes(data?.quality) ? data.quality : 'Medium',
     sensitivity: level(data?.sensitivity,65),
     reduced: typeof data?.reduced === 'boolean' ? data.reduced : reduced

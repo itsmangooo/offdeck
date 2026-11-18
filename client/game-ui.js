@@ -25,14 +25,23 @@ function status(match) {
   if (match.phase === 'select') return match.canSubmit ? '' : 'Response locked in.'
   if (match.phase === 'vote') {
     if (match.voted) return 'Vote locked in.'
-    return match.canVote ? 'Choose another player’s card.' : 'Submit a response next round to vote.'
+    return match.canVote ? '' : 'Submit a response next round to vote.'
   }
+  return ''
+}
+
+function gameplayHint(match) {
+  if (match.spectator || match.paused) return ''
+  if (match.phase === 'select' && match.canSubmit) return 'Choose one of your five cards.'
+  if (match.phase === 'vote' && match.canVote && !match.voted) return 'Vote for another player’s funniest response.'
+  if (match.phase === 'results') return 'Each vote received earns one point.'
   return ''
 }
 
 function cardList(match,disabled) {
   const hasScene = document.body.classList.contains('has-scene')
-  return `<details class="table-controls" ${hasScene ? '' : 'open'}>
+  const needsFallback = !hasScene && !document.body.classList.contains('loading-scene')
+  return `<details class="table-controls" ${needsFallback ? 'open' : ''}>
     <summary>Card list</summary>
     <div class="card-list-content">
       <blockquote class="scenario">${safe(match.scenario.text)}</blockquote>
@@ -65,10 +74,11 @@ function roundResults(match) {
   </div>`
 }
 
-export function gameMarkup(room,disabled) {
+export function gameMarkup(room,disabled,showHints) {
   const {match} = room
   if (match.phase === 'finished') return finalResults(room,disabled)
   const message = status(match)
+  const hint = showHints && gameplayHint(match)
   const count = room.players.filter(player => player.connected).length
   const activity = match.phase === 'select' ? match.submittedCount + ' submitted' :
     match.responses.length + (match.responses.length === 1 ? ' response' : ' responses')
@@ -80,6 +90,7 @@ export function gameMarkup(room,disabled) {
         ${match.phase !== 'results' ? `<span>${icon('cards')} ${activity}</span>` : ''}
       </div>
       ${message ? `<p class="phase-message" role="status">${message}</p>` : ''}
+      ${hint ? `<p class="gameplay-hint">${hint}</p>` : ''}
       ${cardList(match,disabled)}
     </section>
     <aside class="score-panel" aria-label="Scores"><h2>Scores</h2>${scores(match,room.selfId)}</aside>
