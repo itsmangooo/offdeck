@@ -6,6 +6,8 @@ import { gameMarkup } from './game-ui.js'
 import { TableAudio } from './audio.js'
 import { settingsMarkup } from './settings-ui.js'
 import { rulesMarkup } from './rules-ui.js'
+import { Tutorial } from './tutorial.js'
+import { tutorialMarkup } from './tutorial-ui.js'
 import { icon } from './icons.js'
 import '@fontsource-variable/geist'
 import './style.css'
@@ -30,6 +32,7 @@ for (const event of ['pointerdown','keydown']) {
 let room = null
 let receivedAt = 0
 let panel = null
+let tutorial
 let opener = null
 let pending = false
 let resumeQueued = false
@@ -49,14 +52,18 @@ function connectToGame() {
 
   import('./scene/index.js').then(({ TableScene }) => {
     scene = new TableScene(canvasArea,settings)
-    scene.sync(room)
+    scene.sync(tutorial?.table ?? room)
     canvasArea.addEventListener('cardhover', event => {
+      if (tutorial?.step === 1 && event.detail?.hand) previewTutorialCard(event.detail)
       if (event.detail && !panel) audio.play('hover')
     })
     canvasArea.addEventListener('cardaction', event => {
-      if (!panel) playCard(event.detail.action, event.detail.id)
+      if (tutorial) practiceCard(event.detail.action, event.detail.id)
+      else if (!panel) playCard(event.detail.action, event.detail.id)
     })
-    canvasArea.addEventListener('owncard', () => feedback('OWN_CARD'))
+    canvasArea.addEventListener('owncard', () => {
+      if (!tutorial) feedback('OWN_CARD')
+    })
     canvasArea.addEventListener('scenarioinspection', event => {
       const close = document.querySelector('#close-inspection')
       if (event.detail) {
@@ -134,7 +141,7 @@ function feedback(code) {
 }
 
 async function request(event, payload = {}, complete) {
-  if (pending) return
+  if (tutorial || pending) return
   if (!socket.connected) {
     feedback('UNAVAILABLE')
     return
@@ -271,6 +278,7 @@ function menu() {
       </div>
       <div class="menu-links">
         ${button('Game Rules', 'rules', { glyph: 'question' })}
+        ${button('How to Play', 'tutorial', { glyph: 'cards' })}
         ${button('Settings', 'settings', { glyph: 'gear' })}
       </div>
     </nav>
@@ -319,6 +327,7 @@ function overlay() {
     <div class="actions">${button('I am 18 or older', 'age-confirm', { primary: true })}${button('Leave', 'age-leave')}</div>`, false)
   if (age === 'declined') return ''
   if (!name) return dialog('Welcome to OFFDECK', `<p>Choose your nickname.</p><form data-form="nickname">${nameField()}${submit('Continue', false)}</form>`, false)
+  if (tutorial) return tutorialMarkup(tutorial)
   if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending))
   if (panel === 'leave') return dialog('Leave match?', `<p>Leaving frees your seat and may end the match for the remaining players.</p><div class="actions">${button('Stay at Table','close',{primary:true})}${button('Leave Room','leave-confirm',{glyph:'signOut',disabled:pending})}</div>`)
   if (panel === 'rules') return dialog('Game Rules', rulesMarkup(), true, 'rules-dialog')
@@ -337,7 +346,7 @@ function overlay() {
 }
 
 function render() {
-  scene?.sync(room)
+  scene?.sync(tutorial?.table ?? room)
   const focused = document.activeElement
   const field = focused?.name
   // Leave an open form in place across unrelated room updates.
@@ -345,7 +354,7 @@ function render() {
   const base = room?.match ? gameMarkup(room,pending || !socket.connected) : room ? lobby() : menu()
   const loading = document.body.classList.contains('loading-scene') ? '<div class="render-loading" role="status">Opening the card room…</div>' : ''
   const gameHtml = `${base}${loading}${!socket.connected ? `<div class="connection" role="status">${room ? 'Reconnecting to the room…' : 'Connecting to OFFDECK…'}</div>` : ''}`
-  const html = age === 'confirmed' ? gameHtml : age === 'declined' ?
+  const html = tutorial ? '' : age === 'confirmed' ? gameHtml : age === 'declined' ?
     `<section class="panel age-exit"><h1>You left OFFDECK.</h1>
       <p>OFFDECK is for players aged 18 and older.</p>${button('Back to age confirmation', 'age-return')}</section>` : ''
   if (viewMarkup !== html) {
@@ -398,7 +407,9 @@ function render() {
       }
     }
   }
-  if (opening) {
+  if (tutorial) {
+    modal.querySelector('[data-tutorial-title]')?.focus({ preventScroll: true })
+  } else if (opening) {
     (modal.querySelector('input, select') || modal.querySelector('button'))?.focus()
   } else if (field && focused !== document.body) {
     const replacement = [...modal.querySelectorAll('input,select')].find(input => input.name === field)
@@ -433,6 +444,41 @@ function playCard(action, id) {
   if (action === 'vote') return request('match:vote', { responseId: id, roundId })
 }
 
+function previewTutorialCard(card) {
+  const preview = document.querySelector('#tutorial-card-preview')
+  if (preview && card && preview.textContent !== card.text) {
+    preview.textContent = card.text
+    preview.hidden = false
+  }
+}
+
+function practiceCard(action, id) {
+  if (tutorial?.choose(action, id)) render()
+}
+
+function moveTutorial(offset) {
+  if (!tutorial?.move(offset)) return
+  scene?.inspectScenario(false, true)
+  render()
+  if (!settings.reduced) {
+    const transition = [{ opacity: .65, translate: '0 5px' }, { opacity: 1, translate: '0 0' }]
+    modal.querySelector('[data-tutorial-title]')?.animate(transition, { duration: 180, easing: 'ease-out' })
+    const score = modal.querySelector('[data-tutorial-score]')
+    if (score) {
+      score.firstChild.textContent = '0 '
+      score.animate(transition, { duration: 340, easing: 'ease-out' }).onfinish = () => {
+        score.firstChild.textContent = '1 '
+      }
+    }
+  }
+}
+
+function finishTutorial(play) {
+  scene?.inspectScenario(false, true)
+  tutorial = null
+  panel = play ? 'play' : null
+}
+
 app.addEventListener('click', async event => {
   const control = event.target.closest('[data-action]')
   const action = control?.dataset.action
@@ -453,6 +499,20 @@ app.addEventListener('click', async event => {
     if (view.contains(control)) opener = action
     panel = action
   }
+  if (action === 'tutorial' && !room && !pending) {
+    if (view.contains(control)) opener = action
+    panel = 'tutorial'
+    tutorial = new Tutorial()
+  }
+  if (action === 'tutorial-next' || action === 'tutorial-back') moveTutorial(action === 'tutorial-next' ? 1 : -1)
+  if (action === 'tutorial-preview') {
+    const card = tutorial?.table.match?.hand[0]
+    previewTutorialCard(card)
+    if (card) scene?.hover(scene.cards.views.get('hand:' + card.id))
+  }
+  if (action === 'tutorial-inspect') scene?.inspectScenario()
+  if (action === 'tutorial-submit' || action === 'tutorial-vote') practiceCard(action.slice(9), control.dataset.card)
+  if (tutorial && (action === 'tutorial-skip' || action === 'tutorial-play')) finishTutorial(action === 'tutorial-play')
   if (action === 'close') {
     if (!room && invite) leave()
     panel = null
@@ -498,12 +558,13 @@ app.addEventListener('click', async event => {
 
 modal.addEventListener('keydown', event => {
   if (event.key === 'Escape' && name) {
-    modal.querySelector('[data-action="close"]')?.click()
+    if (tutorial && !scene?.cards.inspecting) modal.querySelector('[data-action="tutorial-skip"]')?.click()
+    else modal.querySelector('[data-action="close"]')?.click()
   }
   if (event.key !== 'Tab') return
   const controls = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary')]
   const edge = event.shiftKey ? controls[0] : controls.at(-1)
-  if (document.activeElement === edge) {
+  if (document.activeElement === edge || (event.shiftKey && document.activeElement?.hasAttribute('data-tutorial-title'))) {
     event.preventDefault()
     const next = event.shiftKey ? controls.at(-1) : controls[0]
     next?.focus()

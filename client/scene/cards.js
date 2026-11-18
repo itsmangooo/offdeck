@@ -401,7 +401,10 @@ export class Cards {
     group.position.y += view.winLift * .075
     group.scale.setScalar(base.scale * (1 + view.lift * (scenario ? .035 : dense ? .07 : .13) + pulse * .07 + view.winLift * .04))
     const recorded = !retired && view.data.recorded
-    view.border.visible = Boolean(winner || recorded || view.lift > .12 || pulse)
+    const highlight = this.room?.tutorialHighlight
+    const teaching = !retired && (highlight === 'hand' && view.data.hand ||
+      highlight === 'scenario' && scenario || highlight === 'responses' && view.data.center && !view.data.own)
+    view.border.visible = Boolean(winner || recorded || teaching || view.lift > .12 || pulse)
     view.border.material = winner ? winnerMat : recorded ? recordedMat : focusMat
     if (view.shadow) {
       const { x, y, z } = group.position
