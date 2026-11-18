@@ -114,9 +114,11 @@ On Windows with installed Chrome, set `OFFDECK_CHROME_D3D11=1` to run the browse
 
 ### Silicon
 
-Create or select a **Git + Dockerfile** application on a connected Docker target. In Silicon’s GitHub App integration, bind `itsmangooo/offdeck` to the `main` branch and enable **Deploy verified pushes**. Silicon builds the root `Dockerfile` at the exact commit from the webhook.
+Use **Git + Dockerfile** on a connected Docker target. If migrating the existing image-backed application, clear the runtime command and arguments that download the pinned source so the Dockerfile starts the server. Keep the existing domain and target.
 
-Set the internal container port to `3000` and the application’s `PUBLIC_ORIGIN` to the game's public HTTPS URL. Point the public route at that service and forward WebSocket upgrades. The image includes a Docker health check for `/healthz`.
+In Silicon’s GitHub App integration, bind `itsmangooo/offdeck` to the `main` branch and enable **Deploy verified pushes**. Silicon builds the root `Dockerfile` at the exact commit from the webhook.
+
+Set the internal container port to `3000` and `PUBLIC_ORIGIN=https://offdeck.weedout.dev` for the current public route. That route must forward WebSocket upgrades. The image includes a Docker health check for `/healthz`.
 
 GitHub Actions runs content validation, tests, the production build, and a Docker smoke test for pull requests and pushes to `main`. Silicon handles live deployments through its GitHub App. Verify the exact commit and the final health status on Silicon’s Deployments page.
 
@@ -139,7 +141,7 @@ npm run build
 npm start
 ```
 
-Use [`.env.example`](.env.example) as the configuration reference. Run one Node process behind an HTTPS reverse proxy. Set `PUBLIC_ORIGIN` to the public HTTPS origin, such as `https://offdeckgames.com`. An invitation has the format `https://offdeckgames.com/sid/{sessionId}/`. Node serves the frontend package and handles direct navigation to those URLs.
+Use [`.env.example`](.env.example) as the configuration reference. Run one Node process behind an HTTPS reverse proxy. Set `PUBLIC_ORIGIN` to the public HTTPS origin, such as `https://offdeck.weedout.dev`. An invitation has the format `https://offdeck.weedout.dev/sid/{sessionId}/`. Node serves the frontend package and handles direct navigation to those URLs.
 
 Proxy HTTP requests and WebSocket upgrades to the same process. Preserve the original host and forward `Upgrade` and `Connection` for `/socket.io/`. The following Nginx example goes in the TLS virtual host, with the `map` in the surrounding `http` context. [Nginx WebSocket proxying documentation](https://nginx.org/en/docs/http/websocket.html)
 
