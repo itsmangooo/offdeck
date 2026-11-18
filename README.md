@@ -112,6 +112,27 @@ On Windows with installed Chrome, set `OFFDECK_CHROME_D3D11=1` to run the browse
 
 ## Deployment
 
+### Silicon
+
+Create or select a **Git + Dockerfile** application on a connected Docker target. In Silicon’s GitHub App integration, bind `itsmangooo/offdeck` to the `main` branch and enable **Deploy verified pushes**. Silicon builds the root `Dockerfile` at the exact commit from the webhook.
+
+Set the internal container port to `3000` and the application’s `PUBLIC_ORIGIN` to the game's public HTTPS URL. Point the public route at that service and forward WebSocket upgrades. The image includes a Docker health check for `/healthz`.
+
+GitHub Actions runs content validation, tests, the production build, and a Docker smoke test for pull requests and pushes to `main`. Silicon handles live deployments through its GitHub App. Verify the exact commit and the final health status on Silicon’s Deployments page.
+
+### Docker Compose
+
+Set `PUBLIC_ORIGIN` in `.env` to the game's public HTTPS URL and run:
+
+```sh
+docker compose build --pull
+docker compose up -d --wait
+```
+
+Compose publishes `127.0.0.1:3000` for an HTTPS reverse proxy on the same host. Set `PORT` in `.env` to change the host port, and match it in the proxy configuration. Rebuild the image when card files change.
+
+### Direct Node.js deployment
+
 ```sh
 npm ci
 npm run build

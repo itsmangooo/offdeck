@@ -1,0 +1,40 @@
+name: OFFDECK CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Test game and production container
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run cards:validate
+      - run: npm run build
+      - run: npm test
+      - name: Verify the production container
+        env:
+          PUBLIC_ORIGIN: http://127.0.0.1:13007
+          PORT: '13007'
+        run: |
+          set -euo pipefail
+          trap 'docker compose logs --no-color offdeck; docker compose down' EXIT
+          docker compose config --quiet
+          docker compose build --pull
+          docker compose up -d --wait --wait-timeout 120
+          node scripts/smoke-deployment.mjs "$PUBLIC_ORIGIN"
