@@ -15,7 +15,7 @@ test('the practice table teaches the full round without emitting multiplayer act
   const guide = page.getByRole('dialog', { name: 'How to Play' })
   const next = () => guide.getByRole('button', { name: 'Next', exact: true }).click()
   try {
-    const start = page.getByRole('button', { name: 'How to Play' })
+    const start = page.getByRole('button', { name: 'Replay Tutorial' })
     await start.click()
     await expect(guide.getByRole('heading', { name: 'Welcome to OFFDECK' })).toBeFocused()
     await expect(guide.getByRole('button', { name: 'Back' })).toBeDisabled()
@@ -55,6 +55,7 @@ test('the practice table teaches the full round without emitting multiplayer act
     await expect(guide.getByText(/After 20 scenarios/)).toBeVisible()
     await guide.getByRole('button', { name: 'Play', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Play' })).toBeVisible()
+    expect(await page.evaluate(() => localStorage.getItem('offdeck.tutorial.v1'))).toBe('completed')
     await page.keyboard.press('Escape')
     await expect(start).toBeFocused()
     expect(frames).toEqual([])

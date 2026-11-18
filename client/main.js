@@ -1,6 +1,9 @@
 import { io } from 'socket.io-client'
 import { DEFAULT_CONFIG, ROOM_ID, errors, nickname } from '../shared/protocol.js'
-import { readNickname, saveNickname, readSettings, saveSettings, readAgeConfirmation, saveAgeConfirmation } from './preferences.js'
+import {
+  readNickname, saveNickname, readSettings, saveSettings, readAgeConfirmation, saveAgeConfirmation,
+  readTutorialProgress, saveTutorialProgress
+} from './preferences.js'
 import { button, escapeHtml } from './ui.js'
 import { gameMarkup } from './game-ui.js'
 import { TableAudio } from './audio.js'
@@ -23,6 +26,7 @@ let storage
 try { storage = window.localStorage } catch {}
 let age = readAgeConfirmation(storage) ? 'confirmed' : 'pending'
 let name = readNickname(storage)
+let tutorialProgress = readTutorialProgress(storage)
 let settings = readSettings(storage, matchMedia('(prefers-reduced-motion: reduce)').matches)
 const audio = new TableAudio()
 audio.configure(settings)
@@ -33,6 +37,7 @@ let room = null
 let receivedAt = 0
 let panel = null
 let tutorial
+let tutorialOrigin
 let opener = null
 let pending = false
 let resumeQueued = false
@@ -169,7 +174,7 @@ async function request(event, payload = {}, complete) {
 }
 
 async function enter(id = invite) {
-  if (!id || !name || !socket.connected || pending) return
+  if (!id || !name || !socket.connected || pending || tutorial) return
   if (!ROOM_ID.test(id)) {
     feedback('BAD_LINK')
     return
@@ -278,7 +283,7 @@ function menu() {
       </div>
       <div class="menu-links">
         ${button('Game Rules', 'rules', { glyph: 'question' })}
-        ${button('How to Play', 'tutorial', { glyph: 'cards' })}
+        ${button(tutorialProgress ? 'Replay Tutorial' : 'How to Play', 'tutorial', { glyph: 'cards' })}
         ${button('Settings', 'settings', { glyph: 'gear' })}
       </div>
     </nav>
@@ -326,9 +331,16 @@ function overlay() {
   if (age === 'pending') return dialog('OFFDECK — 18+', `<p>This game contains explicit language, sexual humor, dark comedy, and mature themes.</p>
     <div class="actions">${button('I am 18 or older', 'age-confirm', { primary: true })}${button('Leave', 'age-leave')}</div>`, false)
   if (age === 'declined') return ''
-  if (!name) return dialog('Welcome to OFFDECK', `<p>Choose your nickname.</p><form data-form="nickname">${nameField()}${submit('Continue', false)}</form>`, false)
+  if (!name) {
+    const actions = tutorialProgress ? submit('Continue', false) : `
+      <div class="actions"><button class="primary" value="tutorial">Start Tutorial</button>
+      <button value="skip">Skip Tutorial</button></div>`
+    const message = tutorialProgress ? 'Choose your nickname.' :
+      'Choose a nickname, then try a quick practice round or skip straight to the game.'
+    return dialog('Welcome to OFFDECK', `<p>${message}</p><form data-form="nickname">${nameField()}${actions}</form>`, false)
+  }
   if (tutorial) return tutorialMarkup(tutorial)
-  if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending))
+  if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending, !room))
   if (panel === 'leave') return dialog('Leave match?', `<p>Leaving frees your seat and may end the match for the remaining players.</p><div class="actions">${button('Stay at Table','close',{primary:true})}${button('Leave Room','leave-confirm',{glyph:'signOut',disabled:pending})}</div>`)
   if (panel === 'rules') return dialog('Game Rules', rulesMarkup(), true, 'rules-dialog')
   if (panel === 'play') return dialog('Play', `<div class="actions">${button('Create Room', 'create', { primary: true })}${button('Join Room', 'join')}</div>`)
@@ -473,10 +485,27 @@ function moveTutorial(offset) {
   }
 }
 
+function recordTutorial(progress) {
+  if (tutorialProgress === 'completed' && progress === 'dismissed') return
+  tutorialProgress = progress
+  saveTutorialProgress(storage, progress)
+}
+
+function startTutorial() {
+  tutorialOrigin = panel
+  panel = 'tutorial'
+  tutorial = new Tutorial()
+}
+
 function finishTutorial(play) {
+  recordTutorial(play ? 'completed' : 'dismissed')
   scene?.inspectScenario(false, true)
   tutorial = null
-  panel = play ? 'play' : null
+  panel = play ? 'play' : tutorialOrigin
+  if (invite) {
+    panel = null
+    enter()
+  }
 }
 
 app.addEventListener('click', async event => {
@@ -501,8 +530,7 @@ app.addEventListener('click', async event => {
   }
   if (action === 'tutorial' && !room && !pending) {
     if (view.contains(control)) opener = action
-    panel = 'tutorial'
-    tutorial = new Tutorial()
+    startTutorial()
   }
   if (action === 'tutorial-next' || action === 'tutorial-back') moveTutorial(action === 'tutorial-next' ? 1 : -1)
   if (action === 'tutorial-preview') {
@@ -585,16 +613,12 @@ app.addEventListener('submit', async event => {
   if (event.target.dataset.form === 'nickname') {
     const updated = nickname(fields.name)
     if (!updated) return feedback('BAD_NAME')
-    const persist = () => {
-      name = saveNickname(storage, updated)
-      panel = null
-      render()
-    }
-    if (room) await request('player:name', { name: updated }, persist)
-    else {
-      persist()
-      if (invite) enter()
-    }
+    name = saveNickname(storage, updated)
+    panel = null
+    if (!tutorialProgress && event.submitter?.value !== 'skip') startTutorial()
+    else if (!tutorialProgress) recordTutorial('dismissed')
+    render()
+    if (invite && !tutorial) enter()
   }
   if (event.target.dataset.form === 'settings') {
     const updated = nickname(fields.name)

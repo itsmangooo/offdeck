@@ -27,7 +27,7 @@ test('three independent browser clients finish a production match using only phy
   await a.goto(home)
   await confirmAge(a)
   await a.getByLabel('Nickname').fill('Maya')
-  await a.getByRole('button', { name: 'Continue' }).click()
+  await a.getByRole('button', { name: 'Skip Tutorial' }).click()
   await expect(a.locator('body.has-scene')).toHaveCount(1)
   const snapshot = async name => {
     if (!capture) return

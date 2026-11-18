@@ -9,6 +9,6 @@ export async function openPlayer(browser, name, url = 'http://127.0.0.1:3097', o
   await page.goto(url)
   await confirmAge(page)
   await page.getByLabel('Nickname').fill(name)
-  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('button', { name: 'Skip Tutorial' }).click()
   return { context, page }
 }

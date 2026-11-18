@@ -15,7 +15,7 @@ test('settings persist, nickname updates live, graphics resize and mute controls
   await a.goto('http://127.0.0.1:3097')
   await confirmAge(a)
   await a.getByLabel('Nickname').fill('Maya')
-  await a.getByRole('button', { name: 'Continue' }).click()
+  await a.getByRole('button', { name: 'Skip Tutorial' }).click()
   await a.getByRole('button', { name: 'Create Room' }).click()
   await a.getByRole('dialog').getByRole('button', { name: 'Create Room' }).click()
   const invitation = await a.getByLabel('Invitation link').inputValue()

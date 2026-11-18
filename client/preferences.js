@@ -1,6 +1,22 @@
 import { nickname, NICKNAME_LIFETIME } from '../shared/protocol.js'
 
 const AGE_CONFIRMATION_KEY = 'offdeck.adult.v1'
+const TUTORIAL_KEY = 'offdeck.tutorial.v1'
+
+export function readTutorialProgress(storage) {
+  try {
+    const progress = storage.getItem(TUTORIAL_KEY)
+    return ['completed', 'dismissed'].includes(progress) ? progress : null
+  } catch {
+    return null
+  }
+}
+
+export function saveTutorialProgress(storage, progress) {
+  try {
+    storage.setItem(TUTORIAL_KEY, progress)
+  } catch {}
+}
 
 export function readAgeConfirmation(storage) {
   try {

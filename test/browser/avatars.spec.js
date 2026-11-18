@@ -16,7 +16,7 @@ test('remote hands stay private across submission, disconnect and resume',async 
     await page.goto('http://127.0.0.1:3097')
     await confirmAge(page)
     await page.getByLabel('Nickname').fill('Maya')
-    await page.getByRole('button',{name:'Continue'}).click()
+    await page.getByRole('button',{name:'Skip Tutorial'}).click()
     await page.getByRole('button',{name:'Create Room'}).click()
     await page.getByRole('dialog').getByRole('button',{name:'Create Room'}).click()
     const invite = await page.getByLabel('Invitation link').inputValue()

@@ -5,7 +5,7 @@ function slider(label, key, value) {
     <input type="range" id="opt-${key}" name="${key}" min="0" max="100" value="${value}" data-unit="%">`
 }
 
-export function settingsMarkup(settings, nameField, pending) {
+export function settingsMarkup(settings, nameField, pending, canReplay) {
   return `<form data-form="settings" class="settings-form">
     ${nameField}
     <fieldset><legend>Audio</legend>
@@ -22,6 +22,7 @@ export function settingsMarkup(settings, nameField, pending) {
       ${slider('Camera sensitivity','sensitivity',settings.sensitivity)}
       <label class="check"><input type="checkbox" name="reduced" ${settings.reduced ? 'checked' : ''}> Reduced motion</label>
     </fieldset>
+    <button type="button" data-action="tutorial" ${canReplay && !pending ? '' : 'disabled'}>${icon('cards')} Replay Tutorial</button>
     <button class="primary" ${pending ? 'disabled' : ''}>${icon('check')} Save Settings</button>
   </form>`
 }

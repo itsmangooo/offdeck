@@ -28,7 +28,7 @@ test('first-time visitors can decline and only enter an invitation after confirm
     await expect(warning).toBeVisible()
     await confirmAge(page)
     await page.getByLabel('Nickname').fill('Guest')
-    await page.getByRole('button', { name: 'Continue' }).click()
+    await page.getByRole('button', { name: 'Skip Tutorial' }).click()
     await expect(page.getByRole('heading', { name: 'Room lobby' })).toBeVisible()
     await expect(host.page.getByText('2/8 connected')).toBeVisible()
     await page.reload()
