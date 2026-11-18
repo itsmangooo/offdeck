@@ -5,6 +5,7 @@ import { button, escapeHtml } from './ui.js'
 import { gameMarkup } from './game-ui.js'
 import { TableAudio } from './audio.js'
 import { settingsMarkup } from './settings-ui.js'
+import { rulesMarkup } from './rules-ui.js'
 import { icon } from './icons.js'
 import '@fontsource-variable/geist'
 import './style.css'
@@ -269,7 +270,7 @@ function menu() {
         ${button('Join Room', 'join', { glyph: 'door' })}
       </div>
       <div class="menu-links">
-        ${button('How to Play', 'help', { glyph: 'question' })}
+        ${button('Game Rules', 'rules', { glyph: 'question' })}
         ${button('Settings', 'settings', { glyph: 'gear' })}
       </div>
     </nav>
@@ -299,14 +300,15 @@ function lobby() {
     ${room.hostId === room.selfId ? button('Start Game','start',{primary:true,glyph:'play',className:'start-game',disabled:pending || !socket.connected || connected < 3}) : ''}
     <div class="actions">
       ${button(self?.ready ? 'Unready' : 'Ready','ready',{glyph:'check',primary:room.hostId !== room.selfId,disabled:pending || !socket.connected})}
+      ${button('Game Rules','rules',{glyph:'question'})}
       ${button('Settings','settings',{glyph:'gear'})}
       ${button('Leave Room','leave',{glyph:'signOut',disabled:pending})}
     </div>
   </section>`
 }
 
-function dialog(title, content, close = true) {
-  return `<div class="shade"><section class="panel dialog" role="dialog" aria-modal="true" aria-label="${title}">
+function dialog(title, content, close = true, className = '') {
+  return `<div class="shade"><section class="panel dialog ${className}" role="dialog" aria-modal="true" aria-label="${title}">
     <header><h2>${title}</h2>${close ? button('Close', 'close', { glyph: 'close', className: 'quiet' }) : ''}</header>${content}
   </section></div>`
 }
@@ -319,12 +321,7 @@ function overlay() {
   if (!name) return dialog('Welcome to OFFDECK', `<p>Choose your nickname.</p><form data-form="nickname">${nameField()}${submit('Continue', false)}</form>`, false)
   if (panel === 'settings') return dialog('Settings', settingsMarkup(settings, nameField(), pending))
   if (panel === 'leave') return dialog('Leave match?', `<p>Leaving frees your seat and may end the match for the remaining players.</p><div class="actions">${button('Stay at Table','close',{primary:true})}${button('Leave Room','leave-confirm',{glyph:'signOut',disabled:pending})}</div>`)
-  if (panel === 'help') return dialog('How to Play', `<ol class="instructions">
-    <li>Open a room and invite 3–8 players. The host starts the match.</li>
-    <li>Click the scenario card for a closer look. Hover over one of your five responses to read it, then click to lock it in.</li>
-    <li>After the cards flip, click another player’s anonymous response to vote. Each received vote earns one point. The table reveals authors and vote totals in the results.</li>
-    <li>A replacement brings your hand back to five. Rounds advance automatically through 20 scenarios in a standard match. The highest score wins when the deck is empty, and ties stand.</li>
-  </ol><p class="help-note">Open Card list for keyboard controls. Move the mouse to look around the table.</p>`)
+  if (panel === 'rules') return dialog('Game Rules', rulesMarkup(), true, 'rules-dialog')
   if (panel === 'play') return dialog('Play', `<div class="actions">${button('Create Room', 'create', { primary: true })}${button('Join Room', 'join')}</div>`)
   if (panel === 'create') return dialog('Create Room', `<form data-form="create">
     <label>Seats<input name="capacity" type="number" min="3" max="8" value="${DEFAULT_CONFIG.capacity}" required></label>
@@ -452,7 +449,7 @@ app.addEventListener('click', async event => {
     else if (age === 'confirmed' && name && !invite) view.querySelector('[data-action="play"]')?.focus()
     return
   }
-  if (['play', 'create', 'join', 'help', 'settings'].includes(action)) {
+  if (['play', 'create', 'join', 'rules', 'settings'].includes(action)) {
     if (view.contains(control)) opener = action
     panel = action
   }
@@ -504,7 +501,7 @@ modal.addEventListener('keydown', event => {
     modal.querySelector('[data-action="close"]')?.click()
   }
   if (event.key !== 'Tab') return
-  const controls = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled)')]
+  const controls = [...modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), summary')]
   const edge = event.shiftKey ? controls[0] : controls.at(-1)
   if (document.activeElement === edge) {
     event.preventDefault()

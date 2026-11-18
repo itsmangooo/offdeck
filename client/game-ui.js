@@ -87,6 +87,7 @@ export function gameMarkup(room,disabled) {
     <aside class="room-tools" aria-label="Room controls">
       <div class="room-count">${icon('users')} <span>${count}/${room.config.capacity} connected</span></div>
       <div class="actions">
+        ${button('Game Rules','rules',{glyph:'question'})}
         ${button('Settings','settings',{glyph:'gear'})}
         ${button('Leave Room','leave',{disabled,glyph:'signOut'})}
       </div>
@@ -112,6 +113,7 @@ function finalResults(room, disabled) {
     <div class="actions">
       ${host ? button('Play Again', 'start', { primary: true, disabled: disabled || !canReplay, glyph: 'play' }) : ''}
       ${host ? button('Return to Lobby', 'lobby', { disabled, glyph: 'door' }) : ''}
+      ${button('Game Rules','rules',{glyph:'question'})}
       ${button('Leave Room', 'leave', { disabled, glyph: 'signOut' })}
     </div>
     ${host ? '' : '<p>Waiting for the host.</p>'}
